@@ -1,0 +1,86 @@
+.win {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-window);
+  border: 1px solid var(--border-dark);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 120px;
+}
+
+.win.maximized { border-radius: 0; box-shadow: none; border: none; }
+
+.win-title {
+  flex: none;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 3px 0 3px;
+  background: var(--title-bar);
+  color: var(--title-text);
+  border-bottom: 1px solid var(--border-dark);
+  font-size: 11px;
+}
+
+.win.focused > .win-title { background: var(--title-bar-focus); color: var(--text-bright); }
+
+.win-caption {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.win-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.win-buttons { display: flex; gap: 1px; margin-left: auto; flex: none; }
+
+.win-btn {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 0;
+  border-radius: 2px;
+  cursor: default;
+}
+
+.win-btn:hover { background: var(--bg-hover); color: var(--text-bright); }
+.win-close:hover { background: #c94a43; color: #fff; }
+
+.win-menu { color: var(--text); }
+
+.win-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.rz { position: absolute; z-index: 5; }
+.rz-e { right: -3px; top: 6px; bottom: 6px; width: 7px; cursor: ew-resize; }
+.rz-w { left: -3px; top: 6px; bottom: 6px; width: 7px; cursor: ew-resize; }
+.rz-s { bottom: -3px; left: 6px; right: 6px; height: 7px; cursor: ns-resize; }
+.rz-n { top: -3px; left: 6px; right: 6px; height: 5px; cursor: ns-resize; }
+.rz-se { right: -3px; bottom: -3px; width: 12px; height: 12px; cursor: nwse-resize; }
+.rz-sw { left: -3px; bottom: -3px; width: 12px; height: 12px; cursor: nesw-resize; }
+.rz-ne { right: -3px; top: -3px; width: 12px; height: 10px; cursor: nesw-resize; }
+.rz-nw { left: -3px; top: -3px; width: 12px; height: 10px; cursor: nwse-resize; }

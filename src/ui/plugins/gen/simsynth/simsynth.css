@@ -1,0 +1,25 @@
+/* SimSynth (FL: SimSynth Live) editor: FL 2026's slate skin (panel #384449 from the form, sections and
+   accents after FL's plugin database thumbnail). Original drawing, no Image-Line artwork. */
+.ss-panel {
+  background: #384449;
+  color: #aab6bc;
+}
+.ss-sec { position: absolute; box-sizing: border-box; background: linear-gradient(180deg, #34414a 0%, #303b42 100%); border-bottom: 1px solid #263035; }
+.ss-sec.r { background: linear-gradient(180deg, #3b474e 0%, #343f45 100%); border-left: 1px solid #263035; }
+.ss-title { position: absolute; font-size: 12px; letter-spacing: 0.08em; color: #6f7f88; text-transform: uppercase; pointer-events: none; white-space: nowrap; }
+.ss-cap { position: absolute; font-size: 8.5px; letter-spacing: 0.06em; color: #8e9ca3; text-transform: uppercase; text-align: center; pointer-events: none; white-space: nowrap; }
+.ss-led { position: absolute; box-sizing: border-box; cursor: default; display: flex; align-items: center; gap: 4px; }
+.ss-led .dot { width: 9px; height: 9px; border-radius: 50%; background: #262f34; box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.6), 0 0 0 1px #20282c; flex: none; }
+.ss-led.on .dot { background: radial-gradient(circle at 40% 35%, #ffd2a6 0%, #ff7a2a 45%, #d8481a 100%); box-shadow: 0 0 5px rgba(255, 110, 40, 0.75), 0 0 0 1px #6a2a12; }
+.ss-led .t { font-size: 8.5px; letter-spacing: 0.06em; color: #8e9ca3; text-transform: uppercase; white-space: nowrap; }
+.ss-led.on .t { color: #c7d2d7; }
+.ss-num { position: absolute; box-sizing: border-box; cursor: default; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: #7d8b92; border-radius: 3px; }
+.ss-num.on { color: #ffb27a; text-shadow: 0 0 4px rgba(255, 120, 40, 0.6); }
+.ss-sel { position: absolute; box-sizing: border-box; display: flex; align-items: center; cursor: default; }
+.ss-sel .it { flex: 1; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
+.ss-sel .it.on::before { content: ''; position: absolute; width: 24px; height: 24px; border-radius: 50%; background: #262f34; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55), 0 0 0 1px #3f4b51; }
+.ss-sel svg { position: relative; }
+.ss-env { position: absolute; box-sizing: border-box; background: #2c363b; border-radius: 3px; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45); }
+.ss-logo { position: absolute; box-sizing: border-box; pointer-events: none; }
+.ss-chorus { position: absolute; box-sizing: border-box; cursor: default; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 6px; }

@@ -1,0 +1,235 @@
+/* Patcher editor (colours sampled from FL 2026's Patcher screenshots) */
+.fxk-panel.ptc-panel { background: #454f55; color: #e8eef1; }
+
+.ptc-top {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  background: #3c464c;
+  border-bottom: 1px solid #343e44;
+  box-sizing: border-box;
+}
+
+.ptc-menubtn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  color: #d6dde1;
+  background: linear-gradient(180deg, #465156, #3b454b);
+  border: 1px solid #2d363b;
+  border-radius: 2px;
+  cursor: default;
+}
+.ptc-menubtn:hover { color: #fff; background: linear-gradient(180deg, #4e595f, #424c52); }
+
+.ptc-tabs { position: absolute; }
+.ptc-tab {
+  position: absolute;
+  top: 0;
+  width: 68px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: 8px;
+  box-sizing: border-box;
+  font-size: 13px;
+  color: #d3dadf;
+  cursor: default;
+}
+.ptc-tab span { position: relative; }
+.ptc-tab-bg { position: absolute; left: 0; top: 0; }
+.ptc-tab-bg path { fill: #4b565c; stroke: #333c41; stroke-width: 1; }
+.ptc-tab:hover .ptc-tab-bg path { fill: #525d63; }
+.ptc-tab.on { color: #fff; font-weight: 600; }
+.ptc-tab.on .ptc-tab-bg path { fill: url(#ptc-tab-on); fill: #303a40; stroke: #22292d; }
+
+.ptc-minibtn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  cursor: default;
+}
+.ptc-minibtn:hover { background: rgba(255, 255, 255, 0.07); }
+
+.ptc-led-check {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  font-size: 12px;
+  letter-spacing: -0.15px;
+  color: #e3e9ec;
+  cursor: default;
+  white-space: nowrap;
+}
+.ptc-led {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 1.5px solid #2a2d2f;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+  background: radial-gradient(circle at 40% 35%, #6a7378, #3d4549 70%);
+}
+
+.ptc-body { position: absolute; left: 0; overflow: hidden; }
+
+.ptc-map {
+  position: absolute;
+  left: 0;
+  top: 0;
+  outline: none;
+  background: #454f55;
+  overflow: hidden;
+  touch-action: none;
+}
+.ptc-view { position: absolute; left: 0; top: 0; overflow: hidden; }
+.ptc-layer { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.ptc-top.ptc-layer, .ptc-layer.ptc-top { z-index: 3; background: none; border: none; }
+
+.ptc-flow { animation: ptc-flow 0.9s linear infinite; }
+@keyframes ptc-flow { from { stroke-dashoffset: 32; } to { stroke-dashoffset: 0; } }
+
+.ptc-node-wrap { position: absolute; pointer-events: none; }
+.ptc-node {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px #272c30, 1px 2px 4px rgba(0, 0, 0, 0.45);
+  background: #2b3236;
+}
+.ptc-node.sel { box-shadow: 0 0 0 1px #272c30, 0 0 0 2.5px rgba(255, 255, 255, 0.75), 1px 2px 4px rgba(0, 0, 0, 0.45); }
+.ptc-thumb { position: relative; overflow: hidden; border-radius: 3px; pointer-events: none; }
+.ptc-thumb * { pointer-events: none !important; }
+
+.ptc-label {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  color: #fff;
+  line-height: 1.15;
+  pointer-events: none;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+.ptc-info {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  color: #e9eef0;
+  background: rgba(30, 36, 40, 0.85);
+  border-radius: 2px;
+  padding: 0 4px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+.ptc-info.inside { top: auto; bottom: 2px; font-size: 10px; }
+
+.ptc-io { position: absolute; pointer-events: none; }
+.ptc-io.sel { outline: 1.5px dashed rgba(255, 255, 255, 0.7); outline-offset: 3px; }
+
+.ptc-failed {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2b3236;
+  color: #c4ced5;
+  font-size: 13px;
+}
+
+/* scrollbars */
+.ptc-sb { position: absolute; background: #3c464c; box-sizing: border-box; }
+.ptc-sb.v { border-left: 1px solid #353f45; }
+.ptc-sb.h { border-top: 1px solid #353f45; }
+.ptc-sb-thumb { position: absolute; background: #5d686e; border-radius: 3px; }
+.ptc-sb.v .ptc-sb-thumb { left: 3px; right: 3px; }
+.ptc-sb.h .ptc-sb-thumb { top: 3px; bottom: 3px; }
+.ptc-sb-thumb:hover { background: #6d797f; }
+.ptc-sb-arrow { position: absolute; width: 12px; height: 12px; }
+.ptc-sb-arrow::after { content: ''; position: absolute; left: 50%; top: 50%; border: 3.5px solid transparent; }
+.ptc-sb-arrow.up { left: 0; top: 0; }
+.ptc-sb-arrow.up::after { border-bottom-color: #9aa6ac; border-top-width: 0; transform: translate(-50%, -60%); }
+.ptc-sb-arrow.down { left: 0; bottom: 0; }
+.ptc-sb-arrow.down::after { border-top-color: #9aa6ac; border-bottom-width: 0; transform: translate(-50%, -40%); }
+.ptc-sb-arrow.left { left: 0; top: 0; }
+.ptc-sb-arrow.left::after { border-right-color: #9aa6ac; border-left-width: 0; transform: translate(-60%, -50%); }
+.ptc-sb-arrow.right { right: 0; top: 0; }
+.ptc-sb-arrow.right::after { border-left-color: #9aa6ac; border-right-width: 0; transform: translate(-40%, -50%); }
+.ptc-sb-corner { position: absolute; background: #3c464c; }
+
+/* minimap */
+.ptc-mini {
+  position: absolute;
+  z-index: 5;
+  background: #3e4447;
+  border: 2px solid #23282b;
+  border-radius: 4px;
+  box-sizing: border-box;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.ptc-mini-node { position: absolute; background: #8a8b92; border-radius: 1px; }
+.ptc-mini-io { position: absolute; background: #489dbd; border-radius: 1px; }
+.ptc-mini-view { position: absolute; background: rgba(255, 170, 60, 0.38); border: 1px solid #ffb547; box-sizing: border-box; cursor: move; }
+
+.ptc-perf {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 4;
+  min-width: 150px;
+  background: rgba(30, 36, 40, 0.88);
+  border-radius: 3px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #dfe6ea;
+  pointer-events: none;
+}
+.ptc-perf div { display: flex; justify-content: space-between; gap: 12px; line-height: 16px; }
+
+/* hosted plugin windows */
+.ptc-win {
+  position: absolute;
+  background: #3d454c;
+  border: 1px solid #1d2125;
+  border-radius: 3px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.ptc-win-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 3px;
+  background: #2f363c;
+  color: #e8eef2;
+  border-bottom: 1px solid #1d2125;
+  font-size: 12px;
+  cursor: default;
+}
+.ptc-win-menu { width: 16px; height: 18px; display: flex; align-items: center; justify-content: center; color: #aeb9c1; border-radius: 2px; }
+.ptc-win-menu:hover { background: #4a535b; color: #fff; }
+.ptc-win-caption { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptc-win-sub { color: #85919a; }
+.ptc-win-presets { display: flex; align-items: center; gap: 1px; background: #262b30; border-radius: 3px; padding: 0 2px; }
+.ptc-win-pname { color: #aeb9c1; padding: 0 6px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ptc-win-pname:hover { color: #fff; }
+.ptc-win-btn { width: 16px; height: 18px; display: flex; align-items: center; justify-content: center; color: #aeb9c1; border-radius: 2px; }
+.ptc-win-btn:hover { background: #4a535b; color: #fff; }
+.ptc-win-close:hover { background: #c94a43; color: #fff; }
+.ptc-win-body { position: relative; overflow: hidden; background: #4d575e; }
+
+.ptc-surface { position: absolute; left: 0; top: 0; background: #454f55; }

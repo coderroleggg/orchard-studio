@@ -1,0 +1,78 @@
+/* Frequency Shifter editor (colours sampled from FL's screenshots) */
+.fs-panel {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, rgba(0, 0, 0, 0.02) 1px 2px),
+    linear-gradient(180deg, #3a3a3a 0%, #353535 50%, #333333 100%);
+  font-family: var(--font-ui);
+  color: #bdbdbd;
+}
+.fs-title {
+  font-size: 17px;
+  font-style: italic;
+  font-weight: 300;
+  color: #d9d9d9;
+  text-align: right;
+  white-space: nowrap;
+  pointer-events: none;
+  font-family: 'Avenir Next Condensed', 'Arial Narrow', var(--font-ui);
+}
+.fs-display {
+  border-radius: 2px;
+  color: #111;
+  font-size: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Avenir Next', var(--font-ui);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.fs-vis { cursor: pointer; }
+.fs-label {
+  background: #5d5d5d;
+  border-radius: 2px;
+  color: #d0d0d0;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-align: center;
+  line-height: 14px;
+  pointer-events: none;
+}
+.fs-label.wide { background: #5a5b66; }
+.fs-cap { color: #cfcfcf; font-size: 8.5px; font-weight: 700; letter-spacing: 0.03em; text-align: center; line-height: 14px; pointer-events: none; }
+.fs-pm { color: #8c8c8c; font-size: 10px; text-align: center; pointer-events: none; }
+
+.fs-switch { cursor: default; }
+.fs-switch-track {
+  position: absolute;
+  border-radius: 9px;
+  background: #1f2021;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.fs-switch-ball {
+  position: absolute;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #f0f2f3, #b4b8bb 65%, #868a8d);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.fs-switch-cap { position: absolute; font-size: 8.5px; font-weight: 600; letter-spacing: 0.02em; color: #c9c9c9; white-space: nowrap; }
+.fs-switch-cap.on { color: #f4f4f4; }
+
+.fs-digi {
+  background: #505153;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+  color: #e6e6e6;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ns-resize;
+}
+.fs-digi.off { opacity: 0.45; }
+.fs-link { display: flex; align-items: center; justify-content: center; cursor: default; }
+
+.fs-hline { background: #6a6a6a; pointer-events: none; }

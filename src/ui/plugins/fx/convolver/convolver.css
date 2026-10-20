@@ -1,0 +1,43 @@
+/* Convolver editor (FL 2026 skin; colours sampled from FL's manual screenshots) */
+.cv-panel {
+  background: #4b4f5a;
+  color: #c7ced4;
+  font-family: "Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  font-stretch: condensed;
+}
+.cv-top {
+  position: absolute; left: 0; top: 0; width: 714px; height: 103px;
+  background: linear-gradient(180deg, #3d464d 0%, #343c43 45%, #262d33 88%, #20272c 100%);
+}
+.cv-tabwell {
+  position: absolute; left: 470px; top: 74px; width: 244px; height: 29px;
+  background: linear-gradient(180deg, #4b525b, #3d434b);
+  clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%);
+  border-top-left-radius: 14px;
+}
+.cv-tab { position: absolute; top: 76px; height: 24px; line-height: 24px; font-size: 14px; font-style: italic; cursor: default; color: #8f979f; letter-spacing: 0.01em; }
+.cv-tab.on { color: #a5e842; }
+.cv-tab.on.eq { color: #4fd0f4; }
+.cv-knoblab { position: absolute; text-align: center; color: #cdd3d8; font-size: 14.5px; font-weight: 600; pointer-events: none; white-space: nowrap; }
+.cv-icon { position: absolute; color: #8b949b; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+.cv-logo { position: absolute; color: rgba(130, 138, 146, 0.75); font-style: italic; font-weight: 300; pointer-events: none; white-space: nowrap; font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif; font-stretch: normal; }
+.cv-norm { position: absolute; display: flex; align-items: center; gap: 4px; font-size: 11px; color: #a7b3bb; letter-spacing: 0.04em; cursor: default; font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif; font-stretch: normal; }
+.cv-norm-led { width: 11px; height: 11px; border-radius: 50%; box-shadow: 0 0 0 1.5px #23292d, 0 0 0 2.2px #5a6168; background: radial-gradient(circle at 45% 40%, #6d757b, #3d4449); }
+.cv-norm-led.on { background: radial-gradient(circle at 45% 40%, #ffe0c8, #f07a3c 55%, #b0441c); box-shadow: 0 0 0 1.5px #23292d, 0 0 0 2.2px #5a6168, 0 0 4px #f07a3c; }
+.cv-bar { position: absolute; left: 0; width: 714px; background: #3d434c; }
+.cv-btn {
+  position: absolute; display: flex; align-items: center; justify-content: center; border-radius: 3px;
+  background: linear-gradient(180deg, #5a616b, #4a5059); color: #e4e8eb; cursor: default;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+.cv-btn:hover { background: linear-gradient(180deg, #67707a, #545b65); }
+.cv-btn.on { color: #ffd38a; }
+.cv-btn.flat { background: transparent; box-shadow: none; color: #c9d0d5; }
+.cv-btn.flat:hover { color: #ffffff; }
+.cv-btn.dim { color: #77808a; }
+.cv-btn .cv-drop { position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid #a9b1b8; }
+.cv-transport { position: absolute; left: 5px; top: 106px; width: 89px; height: 32px; border-radius: 3px; background: #22282d; box-shadow: inset 0 0 0 1px #14181b; }
+.cv-small { position: absolute; font-size: 9px; letter-spacing: 0.06em; color: #69737b; pointer-events: none; text-transform: uppercase; white-space: nowrap; font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif; font-stretch: normal; }
+.cv-info { position: absolute; font-size: 12.5px; color: #d9dee2; white-space: nowrap; pointer-events: none; font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif; font-stretch: normal; }
+.cv-vsep { position: absolute; width: 1px; background: #353b42; }
+.cv-upd { position: absolute; border-radius: 50%; }

@@ -1,0 +1,215 @@
+/* Parametric EQ 2 editor. The root font-size is 10 px x the editor scale, so
+   em sizes follow the window size. */
+
+.peq2 {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #1a2228;
+  color: var(--text);
+  font-size: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ------------------------------------------------------------------ graph */
+.peq2-graph {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  background: #0f171c;
+}
+
+.peq2-graph canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+}
+
+.peq2-graph canvas.peq2-fg {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* ------------------------------------------------------------------ panel */
+.peq2-panel {
+  position: absolute;
+  top: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--bg-window) 0%, var(--bg-window-dark) 100%);
+  border-left: 1px solid var(--border-dark);
+}
+
+.peq2-strip {
+  position: absolute;
+  top: 0;
+}
+
+.peq2-strip.dim .knob,
+.peq2-strip.dim .fader {
+  opacity: 0.6;
+}
+
+.peq2-abs { position: absolute; }
+
+.peq2-disabled { opacity: 0.32; }
+
+.peq2-cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.peq2-tile {
+  position: absolute;
+  cursor: ns-resize;
+}
+
+.peq2-tile svg { display: block; }
+
+.peq2-switch-hit {
+  position: absolute;
+  cursor: default;
+}
+
+.peq2-switch {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  background: #1f262a;
+  border: 1px solid #0f1316;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.peq2-switch.on {
+  background: var(--c);
+  box-shadow: 0 0 4px var(--c), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+}
+
+.peq2-switch.solo {
+  outline: 1.5px solid #ffffff;
+  outline-offset: 1px;
+}
+
+.peq2-phones {
+  position: absolute;
+  color: var(--text-dark);
+  cursor: default;
+}
+
+.peq2-phones:hover { color: var(--text-bright); }
+.peq2-phones.on { color: var(--accent); }
+.peq2-phones svg { display: block; }
+
+/* ------------------------------------------------------------- bottom bar */
+.peq2-bottom {
+  position: absolute;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 1.1em;
+  padding: 0 1.4em;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--bg-panel-2) 0%, var(--bg-panel) 100%);
+  border-top: 1px solid var(--border-dark);
+}
+
+.peq2-name {
+  flex: none;
+  white-space: nowrap;
+  font-size: 1.45em;
+  font-weight: 300;
+  letter-spacing: 0.16em;
+  color: var(--text);
+  margin-right: 0.5em;
+}
+
+.peq2-name b {
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--text-bright);
+}
+
+.peq2-spacer { flex: 1; min-width: 0; }
+
+.peq2-btn {
+  flex: none;
+  height: 2.3em;
+  min-width: 3.3em;
+  padding: 0 0.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #2b3338 0%, #20272b 100%);
+  border: 1px solid var(--border-dark);
+  border-radius: 0.3em;
+  box-shadow: inset 0 1px 0 var(--bevel-hi);
+  color: var(--text-dim);
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  cursor: default;
+}
+
+.peq2-btn:hover {
+  color: var(--text-bright);
+  border-color: var(--border-light);
+}
+
+.peq2-btn.on {
+  color: #1e2124;
+  background: var(--accent);
+  border-color: #8a4f15;
+  box-shadow: 0 0 5px rgba(255, 159, 67, 0.35);
+}
+
+.peq2-btn.locked { opacity: 0.45; }
+
+.peq2-btn svg {
+  display: block;
+  width: 1.3em;
+  height: 1.3em;
+}
+
+.peq2-btn sub {
+  font-size: 0.68em;
+  line-height: 0;
+  margin-left: 0.12em;
+  vertical-align: -0.35em;
+}
+
+.peq2-btn-icon { min-width: 2.3em; padding: 0 0.4em; }
+
+.peq2-btn-sm {
+  min-width: 2.2em;
+  height: 2em;
+  padding: 0 0.35em;
+}
+
+.peq2-group {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.peq2-group-row { display: flex; gap: 0.3em; }
+
+.peq2-group-cap {
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+}

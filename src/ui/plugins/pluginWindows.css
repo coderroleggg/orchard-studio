@@ -1,0 +1,12 @@
+/* plugin window title-bar preset browser (FL's wrapper: arrows + preset name) */
+.fxw-presets { display: flex; align-items: center; gap: 2px; margin-left: 8px; }
+.fxw-pbtn {
+  width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+  background: none; border: none; color: #b8c3c9; cursor: default; border-radius: 2px;
+}
+.fxw-pbtn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.fxw-pname {
+  max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; color: #c9d2d7; padding: 1px 6px; border-radius: 2px; background: rgba(0, 0, 0, 0.18); cursor: default;
+}
+.fxw-pname:hover { background: rgba(0, 0, 0, 0.3); }

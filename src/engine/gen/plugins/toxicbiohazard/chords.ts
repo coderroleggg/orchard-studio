@@ -1,0 +1,74 @@
+// Toxic Biohazard's chord detection for the step sequencer, generated from
+// FL 2026's Toxic Biohazard (the branch-free detector at 0x50774, run over all
+// 4096 pitch-class sets): byte = case << 4 | root, case 0 minor, 1 major,
+// 2 minor 7, 3 dominant 7, 4 minor-major 7, 5 major 7, 6 diminished,
+// 7 none (chromatic steps).
+
+const B64 =
+  'cHBxcXJycnJzAHMAcwBzAHQQAUF0EAFBdBABQXQQAUF1dRFRAiJCUXUAEVECIkJRdRARUQIiQlF1EBFRAiJCUXZ2dnYSMlJSA2Aj' +
+  'YENgUmB2EAFBEjJSUgNgI2BDYFJgdnYRURIyUlIDYCNgQ2BSYHYQEVESMlJSA2AjYENgUmB3d3d3d3d3dxMAMzNTU1NTBBBhYSQk' +
+  'YWFERGFhU1NhYXd3EVECIkJREwAzUVNTU1MEEGFhJCRhYUREYWFTU2Fhd3d3dxIyUlITYDNgU2BTYAQQYWEkMmFhRGBhYVNgYWF3' +
+  'dxFREjJSUhNgM2BTYFNgBBBhYSQyYWFEYGFhU2BhYXgYeBh4GHgYeBh4GHgYeBgUGAFBNDQ0QVRUVEFUVFRBBQURUWJiYmIlJSVR' +
+  'YmJiYkVFRVFiYmJiVEVUUWJiYmJ4OHg4EjhSUgNgI2BDYFJgFDgBQTQ4UkFUYFRgVGBUYAU4EVFiYmJiJWAlYGJiYmJFRUVRYmJi' +
+  'YlRgVGBiYmJieFh4WHhYeFgTWDNYU1hTWBRYYWE0WGFhVFhhYVRYYWEFWBFRYmJiYiVYM1hiYmJiRUVhYWJiYmJUWGFhYmJiYnhY' +
+  'eFgSWFJYE2AzYFNgU2AUWGFhNFhhYVRgYWFUYGFhBVgRUWJiYmIlYDNgYmJiYkVFYWFiYmJiVGBhYWJiYmJ5CRkZeQkZGXlpGWl5' +
+  'aRlpeQkZQXkJGUF5aRlpeWkZaRUVGVECIkJCNWk1aTVpQmlVVVVVVVVCVVVpVWlVaUJpBmYGZhJmUmZjaWNpY2ljaSZmJmYmZlJm' +
+  'Y2ljaWNpY2lGZkZmRmZSZmNpY2ljaWNpVWZGZlVmUmZjaWNpY2ljaXkpOTl5KTk5E2k5aVNpU2kEKWFhJClhYURpYWlTaWFpFSk5' +
+  'UQIiQkI1aTlpU2lCaVVVYWFVVWFhVWlhaVVpYWkGZjlmEmZSZmNpY2ljaWNpJmZhZiZmYWZjaWNpY2ljaUZmRmZGZlJmY2ljaWNp' +
+  'Y2lVZmFmVWZhZmNpY2ljaWNpeUlZWXlJWVl5aVlpeWlZaRRJWVk0SVlZVGlZaVRpWWkVSVlRYmJiYjVpWWliaWJpVVVZWWJiYmJV' +
+  'aVlpYmliaQZmWWYSZlJmY2ljaWNpY2kmZllmNGZZZmNpY2ljaWNpRmZGZmJmYmZjaWNpY2ljaVVmWWZiZmJmY2ljaWNpY2l5WFlZ' +
+  'eVhZWRNpWWlTaVlpFElhYTRJYWFUaWFpVGlhaRVYWVFiYmJiNWlZaWJpYmlVVWFhYmJiYlVpYWliaWJpBmZZZhJmUmZjaWNpY2lj' +
+  'aSZmYWY0ZmFmY2ljaWNpY2lGZkZmYmZiZmNpY2ljaWNpVWZhZmJmYmZjaWNpY2ljaXp6CgoaGhoaeiAKIBogGiB6MGpqGjBqanow' +
+  'amoaMGpqenoKURoiQlF6IApRGiJCUXowamoaMGpqejBqahowamoWFhYWGjJSUgNgI2BDYENgNjZqajY2amo2YGpqQ2BqalZWVlZW' +
+  'VlZWVmBWYENgVmBWVmpqVlZqalZgampDYGpqBwdnZwcHZ2cTIGdnU1NnZ2RkampkZGpqZGRqamRkamonJ2dnJydnZycgZ2dTU2dn' +
+  'ZGRqamRkampkZGpqZGRqakdHZ2dHR2dnR2BnZ1NgZ2dkZGpqZGRqamRkampkZGpqVlZnZ0dHZ2dWYGdnU2BnZ2RkampkZGpqZGRq' +
+  'amRkamp6GCoqOjo6OnogKio6Ojo6FDBqajo6ampUVGpqVFRqagUFKlFiYmJiJSUqUWJiYmJFRWpqYmJqalRFampiYmpqFjgqODo6' +
+  'UlIDYCNgQ2BDYDY4amo6OmpqVGBqakNgampWVlZWYmJiYlZgVmBiYmJiVkVqamJiampWYGpqYmJqagdYZ2c6WGdnE1hnZ1NYZ2dk' +
+  'ZGpqZGRqamRkampkZGpqJ1hnZ2JiZ2cnWGdnYmJnZ2RkampkZGpqZGRqamRkampHWGdnR0dnZ0dgZ2dTYGdnZGRqamRkampkZGpq' +
+  'ZGRqalZYZ2diYmdnVmBnZ2JiZ2dkZGpqZGRqamRkampkZGpqeglKSlpaWlp6aUppWmlaaXowampaWmpqemlqalppamoVFUpKWlpa' +
+  'WjVpSmlaaVppVVVqalpaampVaWpqWmlqahZmSmZaZlJmY2ljaWNpY2k2ZmpqWmZqamNpampjaWpqVmZWZlpmWmZjaWNpY2ljaVZm' +
+  'ampaZmpqY2lqamNpamoHKWdnWlpnZxNpZ2lTaWdpZGRqamRkampkaWpqZGlqaicpZ2daWmdnNWlnaVppZ2lkZGpqZGRqamRpampk' +
+  'aWpqR2ZnZ0dmZ2djaWdpY2lnaWRmampkZmpqZGlqamRpampWZmdnWmZnZ2NpZ2ljaWdpZGZqamRmampkaWpqZGlqanpJWVlaWlpa' +
+  'emlZaVppWmkUSWpqWklqalRpampaaWpqFUlKUWJiYmI1aUppYmliaVVVampiYmpqVWlqamJpamoWZllmWmZSZmNpY2ljaWNpNmZq' +
+  'alpmampjaWpqY2lqalZmVmZiZmJmY2ljaWNpY2lWZmpqYmZqamNpampjaWpqB1hnZ1paZ2cTaWdpU2lnaWRkampkZGpqZGlqamRp' +
+  'amonWGdnYmJnZzVpZ2liaWdpZGRqamRkampkaWpqZGlqakdmZ2dHZmdnY2lnaWNpZ2lkZmpqZGZqamRpampkaWpqVmZnZ2JmZ2dj' +
+  'aWdpY2lnaWRmampkZmpqZGlqamRpamp7e3t7CwsLCxtAG0AbQBtAe1AhUAtQIVAbUCFQG1AhUHt7MVFra2trG0AxUWtra2t7UDFR' +
+  'a2traxtQMVFra2tre3t7ewsyUlIbYCNgQ2BSYHtQIVALUFJSG2AjYENgUmB7ezFRa2traxtgMWBra2tre1AxUWtra2sbYDFga2tr' +
+  'axcXFxcXFxcXG0AzQFNAU0AEUGFhJFBhYURQYWFEUGFhNzc3UWtra2s3QDdAa2trazdQYWFra2trRFBhYWtra2tXV1dXV1dXV1dg' +
+  'V2BXYFdgV1BhYVdXYWFEYGFhV2BhYVdXV1dra2trV2BXYGtra2tXUGFha2tra0RgYWFra2trCBgIGGhoaGgIQAhAaGhoaBRQIUFo' +
+  'aGhoVFRUVGhoaGhlZWVla2tra2VlZWVra2trZWVlZWtra2tlZWVla2trayg4KDhoaGhoKGAoYGhoaGgoUCFBaGhoaFRgVGBoaGho' +
+  'ZWVlZWtra2tlZWVla2tra2VlZWVra2trZWVlZWtra2tIWEhYaGhoaEhYSFhoaGhoSFBhYWhoaGhUWGFhaGhoaGVlZWVra2trZWVl' +
+  'ZWtra2tlZWVla2tra2VlZWVra2trV1hXWGhoaGhIYEhgaGhoaFdQYWFoaGhoVGBhYWhoaGhlZWVla2tra2VlZWVra2trZWVlZWtr' +
+  'a2tlZWVla2tra3sJGRkrKysrO2k7aTtpO2l7UCFQK1ArUDtpO2k7aTtpFRUxUWtra2s7aTtpa2tra1VVVVVra2trVWlVaWtra2sG' +
+  'ZgZmK2ZSZmNpY2ljaWNpJmYmZitmUmZjaWNpY2ljaUZmRmZra2trY2ljaWtra2tVZkZma2tra2NpY2lra2trFyk5OSsrOTk7aTtp' +
+  'U2lTaQRQYWEkUGFhRGlhaURpYWk3NzlRa2traztpO2lra2trVVVhYWtra2tEaWFpa2tra1dmV2ZXZldmY2ljaWNpY2lXZmFmV2Zh' +
+  'ZmNpY2ljaWNpV2ZGZmtra2tjaWNpa2tra1dmYWZra2trY2ljaWtra2sISVlZaGhoaDtpWWloaWhpFElZWWhoaGhUaVlpaGloaWVl' +
+  'ZWVra2trZWllaWtra2tlZWVla2tra2VpZWlra2trKGZZZmhoaGhjaWNpaGloaShmWWZoaGhoY2ljaWhpaGllZmVma2tra2VpZWlr' +
+  'a2trZWZlZmtra2tlaWVpa2tra0hYWVloaGhoSGlIaWhpaGlIUGFhaGhoaFRpYWloaWhpZWVlZWtra2tlaWVpa2tra2VlZWVra2tr' +
+  'ZWllaWtra2tXZllmaGhoaGNpY2loaWhpV2ZhZmhoaGhjaWNpaGloaWVmZWZra2trZWllaWtra2tlZmVma2tra2VpZWlra2tre3sK' +
+  'CktLS0tbW1tbW1tbW3tQampLUGpqW1tqaltbamp7ezFRa2tra1tbW1tra2tre1Bqamtra2tbW2pqa2traxYWFhZLS0tLW2BbYFtg' +
+  'W2A2UGpqS0tqaltgampbYGpqVlZWVmtra2tbYFtga2tra1ZWampra2trW2Bqamtra2sXF2dnS0tnZ1tAZ2dTU2dnZGRqamRkampk' +
+  'ZGpqZGRqajc3Z2dra2trW0BnZ2tra2tkZGpqa2tra2Rkampra2trV1dnZ1dXZ2dbYGdnW2BnZ2RkampkZGpqZGRqamRkampXV2dn' +
+  'a2tra1tgZ2dra2trZGRqamtra2tkZGpqa2trawgYKipoaGhoW1tbW2hoaGgUUGpqaGhqalRUampoaGpqZWVlZWtra2tlZWVla2tr' +
+  'a2Vlampra2trZWVqamtra2soOCo4aGhoaFtgW2BoaGhoNlBqamhoampbYGpqaGhqamVlZWVra2trZWVlZWtra2tlZWpqa2tra2Vl' +
+  'ampra2trSFhnZ2hoaGhIWGdnaGhoaGRkampoaGpqZGRqamhoamplZWdna2tra2VlZ2dra2trZWVqamtra2tlZWpqa2tra1dYZ2do' +
+  'aGhoW2BnZ2hoaGhkZGpqaGhqamRkampoaGpqZWVnZ2tra2tlZWdna2tra2Vlampra2trZWVqamtra2t7CUpKWlpaWltpW2lbaVtp' +
+  'e1BqalpaampbaWpqW2lqahUVSkpra2trW2lKaWtra2tVVWpqa2tra1tpampra2trFmZKZktmUmZjaWNpY2ljaTZmampLZmpqY2lq' +
+  'amNpampWZlZma2tra2NpY2lra2trVmZqamtra2tjaWpqa2traxcpZ2daWmdnW2lnaVNpZ2lkZGpqZGRqamRpampkaWpqNzdnZ2tr' +
+  'a2tbaWdpa2tra2Rkampra2trZGlqamtra2tXZmdnV2ZnZ2NpZ2ljaWdpZGZqamRmampkaWpqZGlqaldmZ2dra2trY2lnaWtra2tk' +
+  'Zmpqa2tra2Rpampra2trCElZWWhoaGhbaVtpaGloaRRJampoaGpqVGlqamhpamplZWVla2tra2VpZWlra2trZWVqamtra2tlaWpq' +
+  'a2trayhmWWZoaGhoY2ljaWhpaGk2ZmpqaGhqamNpampoaWpqZWZlZmtra2tlaWVpa2tra2Vmampra2trZWlqamtra2tIWGdnaGho' +
+  'aEhpZ2loaWhpZGRqamhoampkaWpqaGlqamVlZ2dra2trZWlnaWtra2tlZWpqa2tra2Vpampra2trV2ZnZ2hoaGhjaWdpaGloaWRm' +
+  'ampoaGpqZGlqamhpamplZmdna2tra2VpZ2lra2trZWZqamtra2tlaWpqa2traw==';
+
+let tab: Uint8Array | null = null;
+
+/** Detected chord of a pitch-class set (bit k = pitch class k held). */
+export function txChord(pcs: number): number {
+  if (!tab) {
+    const s = atob(B64);
+    tab = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) tab[i] = s.charCodeAt(i);
+  }
+  return tab[pcs & 4095];
+}

@@ -1,0 +1,75 @@
+/* LuxeVerb editor (FL 2026 skin; colours sampled from FL's manual screenshot) */
+.lx-panel {
+  background: #26282a;
+  color: #f2f6f8;
+  font-family: "Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  font-stretch: condensed;
+}
+.lx-top {
+  position: absolute; left: 0; top: 0; width: 940px; height: 225px;
+  background: #0891b9;
+  border-radius: 0 0 9px 9px;
+}
+.lx-bottom {
+  position: absolute; left: 0; top: 228px; width: 940px; height: 222px;
+  background-color: #363937;
+  background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.03) 0 1px, transparent 1px 2px);
+  border-radius: 9px 9px 0 0;
+}
+.lx-cell { position: absolute; border-radius: 6px; background: #0882a6; }
+.lx-cell.dark { background: #2c2f30; }
+.lx-val {
+  position: absolute; height: 12px; line-height: 12px; border-radius: 2px;
+  background: #d0e6ee; color: #18303a; font-size: 11px; text-align: center; white-space: nowrap; overflow: hidden;
+  pointer-events: none; font-weight: 400;
+}
+.lx-val.dark { background: #8b9194; color: #1c2022; }
+.lx-cap {
+  position: absolute; color: #f2f6f8; font-size: 11.5px; text-align: center; white-space: nowrap;
+  pointer-events: none; text-transform: uppercase; letter-spacing: 0; font-weight: 400;
+}
+.lx-cap.dark { color: #d9dedf; }
+.lx-title { position: absolute; color: #f4f8fa; font-size: 17.5px; font-weight: 400; letter-spacing: 0; pointer-events: none; }
+.lx-title.dark { color: #e4e8e9; }
+.lx-rule { position: absolute; height: 1px; background: rgba(0, 60, 80, 0.45); pointer-events: none; }
+.lx-vrule { position: absolute; width: 1px; background: rgba(0, 60, 80, 0.45); pointer-events: none; }
+.lx-led {
+  position: absolute; border-radius: 4px; background: #0a7aa0; cursor: default;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+.lx-led::after {
+  content: ''; position: absolute; left: 4px; right: 4px; top: 6px; bottom: 6px; border-radius: 1px;
+  background: #0b5f7c;
+}
+.lx-led.on::after { background: #ffffff; box-shadow: 0 0 3px rgba(255, 255, 255, 0.8); }
+.lx-led.cyan { background: transparent; box-shadow: none; }
+.lx-led.cyan::after { left: 2px; right: 2px; top: 7px; bottom: 7px; background: #20494f; }
+.lx-led.cyan.on::after { background: #46e3f5; box-shadow: 0 0 4px rgba(70, 227, 245, 0.8); }
+.lx-tbtn {
+  position: absolute; border-radius: 1px; background: #6d777b; color: #d8dee0; font-size: 10px; font-weight: 700;
+  text-align: center; line-height: 12px; cursor: default; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.lx-tbtn.on { background: #f4f7f8; color: #10181b; }
+.lx-combo {
+  position: absolute; border-radius: 4px; background: #0a7aa0; color: #f2f6f8; font-size: 11px; line-height: 16px; font-weight: 400;
+  padding-left: 7px; box-sizing: border-box; cursor: default; white-space: nowrap; text-transform: uppercase;
+}
+.lx-combo::after {
+  content: ''; position: absolute; right: 6px; top: 4px; border-left: 5px solid rgba(220, 240, 248, 0.85);
+  border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+}
+.lx-sw { position: absolute; border-radius: 12px; background: #0a7aa0; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); cursor: default; }
+.lx-sw.dark { background: #2c2f30; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.lx-sw-thumb { position: absolute; border-radius: 50%; background: radial-gradient(circle at 45% 35%, #ffffff, #e5e9ea 60%, #c3c9cb); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); }
+.lx-sw.dark .lx-sw-thumb { background: radial-gradient(circle at 45% 35%, #e9ecec, #c7cccd 60%, #a1a7a9); }
+.lx-sw-lab { position: absolute; font-size: 11px; color: #f2f6f8; cursor: default; white-space: nowrap; text-transform: uppercase; font-weight: 400; }
+.lx-sw.dark ~ .lx-sw-lab, .lx-sw-lab.dark { color: #d9dedf; }
+.lx-btn {
+  position: absolute; border-radius: 2px; font-size: 11px; line-height: 13px; text-align: center; cursor: default;
+  background: #3f4a52; color: #9fb1bd; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+.lx-btn.on { background: #dff2fb; color: #2f7fa4; box-shadow: inset 0 0 0 1px #6fc4e8; }
+.lx-legend { position: absolute; font-size: 11px; white-space: nowrap; pointer-events: none; letter-spacing: 0; font-weight: 400; }
+.lx-logo { position: absolute; color: #e8ecee; font-size: 24px; letter-spacing: 0.17em; font-weight: 300; pointer-events: none; font-family: "Helvetica Neue", Arial, sans-serif; font-stretch: normal; }
+.lx-arrow { position: absolute; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; pointer-events: none; }

@@ -1,0 +1,40 @@
+/* Reeverb (legacy) editor: colours and text metrics sampled from FL's manual screenshot */
+.rvl-panel {
+  background: #444a4f;
+  font-family: Arial, "Helvetica Neue", Helvetica, "Liberation Sans", sans-serif;
+}
+.rvl-bevel {
+  position: absolute;
+  width: 160px;
+  height: 45px;
+  background: #50585b;
+  border-radius: 3px;
+}
+.rvl-title {
+  position: absolute;
+  left: 54px;
+  top: 0;
+  width: 106px;
+  height: 16px;
+  line-height: 16px;
+  background: #5a636a;
+  border-radius: 3px;
+  color: #bccbcf;
+  font-size: 9.6px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.rvl-value {
+  position: absolute;
+  left: 55px;
+  top: 26px;
+  width: 102px;
+  height: 14px;
+  line-height: 14px;
+  color: #cfeef5;
+  font-size: 10.7px;
+  white-space: pre;
+  pointer-events: none;
+}

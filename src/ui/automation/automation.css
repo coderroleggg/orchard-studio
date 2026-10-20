@@ -1,0 +1,77 @@
+/* Automation clip settings window */
+.ae-title { display: inline-flex; align-items: center; gap: 5px; }
+.ae-title-ico { display: inline-flex; color: #b9cfdc; }
+.ae-snap { min-width: 74px; gap: 4px; }
+
+.ae-root {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-window);
+}
+
+.ae-editor {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 4px 4px 0;
+  border: 1px solid #111517;
+  border-radius: 2px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ae-ruler { display: block; flex: none; }
+.ae-canvas-wrap { position: relative; flex: 1; min-height: 0; }
+.ae-canvas, .ae-overlay { position: absolute; left: 0; top: 0; display: block; }
+.ae-overlay { pointer-events: none; }
+
+.ae-settings {
+  flex: none;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+}
+
+.ae-knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+.ae-target {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  max-width: 60%;
+}
+
+.ae-target-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.ae-target-name { font-size: 11px; color: var(--text-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* LFO panel */
+.ae-lfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  margin-left: 6px;
+  border: 1px solid var(--border-dark);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.12);
+}
+.ae-lfo-head { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 9px; color: var(--text-dim); letter-spacing: 0.05em; }
+.ae-knob.off { opacity: 0.55; }
+.ae-mult { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-dim); cursor: default; padding: 2px 4px; border-radius: 2px; }
+.ae-mult:hover { background: rgba(255, 255, 255, 0.05); }
+.ae-mult.on { color: var(--text-bright); }

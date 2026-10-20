@@ -1,0 +1,100 @@
+/* Global theme. Original styling in the spirit of a dark, slate-coloured DAW. */
+
+:root {
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --bg-app: #2f363c;
+  --bg-workspace: #3a4248;
+  --bg-menubar: #2b3136;
+  --bg-toolbar: #343b41;
+  --bg-panel: #2c3237;
+  --bg-panel-2: #383f45;
+  --bg-window: #3d454c;
+  --bg-window-dark: #31383e;
+  --bg-input: #22272b;
+  --bg-lcd: #1c2023;
+  --bg-hover: #4a535b;
+  --bg-active: #56616a;
+
+  --title-bar: #262b30;
+  --title-bar-focus: #2f363c;
+  --title-text: #aeb9c1;
+
+  --border-dark: #1d2125;
+  --border-mid: #252a2f;
+  --border-light: #4b545c;
+  --bevel-hi: rgba(255, 255, 255, 0.07);
+  --bevel-lo: rgba(0, 0, 0, 0.35);
+
+  --text: #c4ced5;
+  --text-bright: #e8eef2;
+  --text-dim: #85919a;
+  --text-dark: #5d6870;
+
+  --led-on: #8ee04c;
+  --led-off: #3b4a35;
+  --accent: #ff9f43; /* orange: selection, playhead, highlights */
+  --accent-2: #5fc8ff; /* blue: info */
+  --accent-green: #9be15d;
+  --accent-red: #ff5a5a;
+
+  --knob-body: #4c555c;
+  --knob-ring: #232829;
+  --knob-arc: #9fd96b;
+  --knob-pointer: #e9f1f5;
+
+  --step-off: #5a6268;
+  --step-off-alt: #645459;
+  --step-on: #d9e1e6;
+  --step-on-alt: #e6d6da;
+
+  --grid-bg: #34393e;
+  --grid-bg-alt: #2f3439;
+  --grid-line: #2a2f33;
+  --grid-beat: #262a2e;
+  --grid-bar: #1c1f22;
+
+  --meter-green: #6fe05a;
+  --meter-yellow: #f0e04a;
+  --meter-red: #ff4a3a;
+
+  --scroll-thumb: #57616a;
+  --scroll-track: #2a3035;
+
+  --menu-bg: #2e353a;
+  --menu-hover: #ff9f43;
+  --menu-hover-text: #1e2124;
+  --menu-sep: #444d54;
+
+  --hint-text: #d7e0e6;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-app);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button { font: inherit; color: inherit; }
+
+input, select, textarea { font: inherit; color: var(--text-bright); }
+
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: var(--scroll-track); }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border: 2px solid var(--scroll-track); border-radius: 6px; }
+::-webkit-scrollbar-corner { background: var(--scroll-track); }
+
+.dragging-control, .dragging-control * { cursor: none !important; }
+.resizing-ew, .resizing-ew * { cursor: ew-resize !important; }
+.resizing-ns, .resizing-ns * { cursor: ns-resize !important; }
+.moving, .moving * { cursor: move !important; }

@@ -1,0 +1,226 @@
+/* Remote control settings dialog (FL's TMIDIInputForm: 256 x 490 client area).
+   Colours from the form: form #4d565c, panels #3c454b, combos #262b2f / #9fa7ad,
+   captions #b9bfc3, check captions #c9d0d3, formula edit #2f383d / #e9f0f3. */
+
+.rc-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50000;
+}
+
+.rc-dialog {
+  position: fixed;
+  width: 258px;
+  background: #4d565c;
+  border: 1px solid #23282c;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+  color: #c9d0d3;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.rc-caption {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  background: #394147;
+  color: #c9d0d3;
+  font-size: 12px;
+  cursor: default;
+  border-bottom: 1px solid #2c3236;
+}
+.rc-caption-icon { width: 23px; display: flex; justify-content: center; color: #c9d0d3; }
+.rc-caption-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-caption-close {
+  width: 22px;
+  height: 20px;
+  margin-right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aeb7bc;
+  border-radius: 2px;
+}
+.rc-caption-close:hover { background: #c94a43; color: #fff; }
+
+.rc-body { position: relative; }
+
+.rc-combo {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0 22px 0 7px;
+  background: #262b2f;
+  border: 1px solid #1d2124;
+  border-radius: 4px;
+  color: #9fa7ad;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.rc-combo::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  border: 4px solid transparent;
+  border-top-color: #8e979d;
+  border-bottom-width: 0;
+  transform: translateY(-25%);
+}
+.rc-combo:hover { color: #c5cdd2; }
+.rc-combo.small { padding: 0 12px 0 5px; }
+.rc-combo.small::after { right: 4px; border-width: 3px; border-bottom-width: 0; }
+.rc-combo.large { font-size: 13px; }
+.rc-combo.disabled { opacity: 0.5; }
+.rc-combo-text { overflow: hidden; text-overflow: ellipsis; }
+
+.rc-panel {
+  position: absolute;
+  box-sizing: border-box;
+  background: #3c454b;
+  border: 1px solid #333b40;
+}
+.rc-panel-tab {
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  height: 19px;
+  line-height: 19px;
+  padding: 0 14px 0 6px;
+  color: #b9bfc3;
+  font-size: 12px;
+  white-space: nowrap;
+  background: #353d42;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 9px) 100%, 0 100%);
+}
+
+.rc-label { position: absolute; color: #b9bfc3; font-weight: 600; white-space: nowrap; line-height: 15px; }
+
+.rc-num {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  background: #2a3135;
+  border: 1px solid #1d2124;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.rc-num-val {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffeaaa;
+  font-size: 12px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.rc-num.disabled .rc-num-val { color: #77807f; }
+.rc-num-arrows { width: 9px; display: flex; flex-direction: column; border-left: 1px solid #1d2124; }
+.rc-num-arrows > div { flex: 1; position: relative; }
+.rc-num-arrows > div::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border: 3px solid transparent;
+}
+.rc-num-arrows > div:first-child::after { border-bottom-color: #9aa5ab; border-top-width: 0; transform: translate(-50%, -40%); }
+.rc-num-arrows > div:last-child::after { border-top-color: #9aa5ab; border-bottom-width: 0; transform: translate(-50%, -60%); }
+
+.rc-check {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #c9d0d3;
+  white-space: nowrap;
+  cursor: default;
+}
+.rc-check.small { font-size: 10px; }
+.rc-led {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+  box-sizing: border-box;
+  border: 1.5px solid #7f8587;
+  background: radial-gradient(circle at 45% 40%, #4b5055 0%, #2d3234 70%, #121515 100%);
+}
+.rc-led.on {
+  border-color: #c98f6d;
+  background: radial-gradient(circle at 45% 40%, #ffd0b8 0%, #ff6a3d 55%, #a43720 100%);
+  box-shadow: 0 0 4px #ff6a3d;
+}
+
+.rc-edit {
+  position: absolute;
+  box-sizing: border-box;
+  background: #2f383d;
+  border: 1px solid #262c30;
+  border-radius: 3px;
+  color: #e9f0f3;
+  font: 13px var(--font-ui);
+  padding: 0 4px;
+  outline: none;
+}
+.rc-edit:focus { border-color: #6c7a82; }
+
+.rc-presets {
+  position: absolute;
+  box-sizing: border-box;
+  background: #3d382f;
+  background: #2f383d;
+  border: 1px solid #262c30;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b9bfc3;
+  cursor: default;
+}
+.rc-presets:hover { color: #fff; }
+
+.rc-status { position: absolute; font-size: 10px; font-weight: 600; line-height: 12px; color: #b9bfc3; white-space: pre-line; overflow: hidden; }
+.rc-status.ok { color: #f2c94c; }
+.rc-status.err { color: #ff6b5f; }
+
+.rc-slider { position: absolute; touch-action: none; cursor: default; }
+.rc-slider-groove { position: absolute; left: 4px; right: 4px; top: 50%; height: 4px; margin-top: -2px; background: #1f2528; border-radius: 2px; box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.5); }
+.rc-slider-fill { position: absolute; left: 4px; top: 50%; height: 4px; margin-top: -2px; background: #8e9aa1; border-radius: 2px; }
+.rc-slider-cap {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 16px;
+  margin-top: -8px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #a3adb3, #6d787e);
+  border: 1px solid #23292c;
+}
+.rc-slider.disabled { opacity: 0.45; }
+
+.rc-btn {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #31373b;
+  border: 1px solid #262b2f;
+  border-radius: 3px;
+  color: #b9bfc3;
+  font-size: 12px;
+  cursor: default;
+}
+.rc-btn:hover { background: #3a4146; color: #e3e9ec; }
+.rc-btn.disabled { opacity: 0.45; pointer-events: none; }
+.rc-btn.default { border-color: #59656c; }
+
+.rc-graph { position: absolute; }

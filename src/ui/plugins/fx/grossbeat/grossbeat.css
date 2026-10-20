@@ -1,0 +1,129 @@
+/* Gross Beat editor (colours sampled from FL 2026's Gross Beat screenshots) */
+.gb-panel { background: #425c6d; font-family: var(--font-ui); }
+
+.gb-left { position: absolute; left: 0; top: 0; width: 266px; height: 561px; overflow: hidden; }
+
+.gb-pill {
+  border-radius: 15px;
+  background: #343d43;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.gb-pill-text { position: absolute; left: 14px; right: 22px; top: 4px; text-align: center; font-size: 14.5px; font-style: italic; letter-spacing: 0.01em; }
+.gb-pill-icon { position: absolute; right: 9px; top: 7px; }
+
+.gb-clock {
+  border: 1px solid #0b0d0e;
+  background: linear-gradient(180deg, #8996a0 0%, #808c96 45%, #6d7880 100%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.gb-holdbtn {
+  border-radius: 3px;
+  background: #273035;
+  border: 1px solid #1d2428;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+  color: #b9c3c9;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+.gb-holdbtn.on { color: #fff; background: #3d4d36; box-shadow: inset 0 0 6px rgba(160, 230, 110, 0.35); }
+
+.gb-optbtn { cursor: default; display: flex; align-items: center; justify-content: center; }
+.gb-optbtn:hover svg path { fill: #ffffff; }
+
+.gb-slots { }
+.gb-slot {
+  position: absolute;
+  box-sizing: border-box;
+  background: #36454f;
+  color: #eef4f6;
+  font-size: 8.7px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: default;
+}
+.gb-slot:hover { background: #3c4c57; }
+.gb-slot-name { pointer-events: none; text-shadow: 0 0 1px rgba(0, 0, 0, 0.25); }
+.gb-time .gb-slot.sel { box-shadow: inset 0 0 0 1px #60835a; color: #dcfd96; }
+.gb-vol .gb-slot.sel { box-shadow: inset 0 0 0 1px #827160; color: #fff29d; }
+.gb-time .gb-slot.play { background: #3f5b3b; color: #e9ffbd; }
+.gb-vol .gb-slot.play { background: #5c4b30; color: #fff4c4; }
+.gb-time .gb-slot.queued { box-shadow: inset 0 0 0 1px #9ddc7d; }
+.gb-vol .gb-slot.queued { box-shadow: inset 0 0 0 1px #ffc977; }
+
+.gb-tab { cursor: default; }
+.gb-tab-shape { position: absolute; left: 0; top: 0; }
+.gb-tab-icon { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.gb-tab-text {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: center;
+  font-size: 10.5px;
+  letter-spacing: -0.02em;
+}
+.gb-tab:hover .gb-tab-shape path { stroke: #4a5f6d; }
+
+.gb-env { touch-action: none; }
+
+.gb-name {
+  font-size: 14px;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
+  line-height: 22px;
+  padding-left: 2px;
+}
+
+.gb-combo {
+  border-radius: 3px;
+  background: #313f4a;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  color: #e6ecef;
+  font-family: 'Arial Narrow', 'Roboto Condensed', var(--font-ui);
+  font-size: 10.6px;
+  display: flex;
+  align-items: center;
+  cursor: default;
+  white-space: nowrap;
+}
+.gb-combo:hover { background: #374754; }
+.gb-combo-txt { flex: 1; display: flex; align-items: center; min-width: 0; }
+.gb-combo-cap { color: #b6c2ca; margin-left: 5px; margin-right: 2px; }
+.gb-combo-val { flex: 1; text-align: center; overflow: hidden; min-width: 0; }
+.gb-combo-arrow { margin: 0 4px 0 1px; flex: none; }
+
+.gb-bbtn {
+  border-radius: 3px;
+  border: 1px solid #313f4a;
+  background: #374c5a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+.gb-bbtn.on { background: #46606f; border-color: #6c8796; }
+.gb-bbtn:hover { border-color: #52697a; }
+
+.gb-icontoggle { display: flex; align-items: center; justify-content: center; cursor: default; border-radius: 3px; }
+.gb-icontoggle.on { background: rgba(255, 255, 255, 0.1); }
+
+.gb-knoblabel { color: #c6d0d6; font-family: 'Arial Narrow', 'Roboto Condensed', var(--font-ui); font-size: 12.5px; text-transform: uppercase; }

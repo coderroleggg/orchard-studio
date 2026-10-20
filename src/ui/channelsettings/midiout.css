@@ -1,0 +1,164 @@
+/* MIDI Out editor (FL: MIDI Out, SynthEditorForm 558 x 389). Colours sampled
+   from the manual's FL 2026 screenshot (1.53x): bars #3f454a, page #444b4f,
+   red digit wheels #8f535a, combos #2f3539..#373c41, active labels #ffcc3c. */
+
+.mo-panel {
+  position: relative;
+  width: 558px;
+  height: 389px;
+  overflow: hidden;
+  background: #3f454a;
+  color: #dfe6e8;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mo-abs { position: absolute; box-sizing: border-box; }
+
+.mo-page { background: #444b4f; box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.25); }
+
+.mo-cap {
+  color: #dfe6e8;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.mo-digi {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: 8px;
+  background: linear-gradient(180deg, #965a62, #8d5259);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: #f2f4f1;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.mo-digi::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  top: 6px;
+  bottom: 6px;
+  width: 4px;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0 1px, transparent 1px 3px);
+  border-radius: 1px;
+}
+
+.mo-combo {
+  display: flex;
+  align-items: center;
+  padding: 0 18px 0 6px;
+  background: linear-gradient(180deg, #373c41, #2f3539);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+  color: #e3e9eb;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: default;
+}
+.mo-combo::after {
+  content: '';
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  border: 4px solid transparent;
+  border-left: 5px solid #9ba6ac;
+  border-right-width: 0;
+  transform: translateY(-50%);
+}
+.mo-combo.big { font-size: 15px; }
+
+.mo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #3b4146, #353a3f);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #dfe6e8;
+  cursor: default;
+  white-space: nowrap;
+}
+.mo-btn:hover { filter: brightness(1.12); }
+.mo-btn.round { border-radius: 0 14px 14px 0; }
+
+.mo-check { display: flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; color: #dfe6e8; font-size: 11px; letter-spacing: -0.01em; }
+.mo-check .mo-led {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #6c757a, #3b4246 70%);
+  box-shadow: inset 0 0 0 1.5px #262c2f, 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.mo-check .mo-led.on {
+  background: radial-gradient(circle at 50% 40%, #ffd2b6, #ff8f61 55%, #d9572e);
+  box-shadow: inset 0 0 0 1.5px #8a3a1f, 0 0 5px rgba(255, 140, 90, 0.7);
+}
+
+.mo-knob { cursor: default; touch-action: none; }
+
+.mo-label {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+  color: #e7ecee;
+}
+.mo-label.on { color: #ffcc3c; }
+.mo-value {
+  font-size: 19px;
+  line-height: 17px;
+  color: #8f9aa0;
+  font-stretch: condensed;
+  letter-spacing: -0.02em;
+  pointer-events: none;
+}
+.mo-gear { color: #6f797e; cursor: default; display: flex; align-items: center; justify-content: center; }
+.mo-gear:hover { color: #aab4b9; }
+
+/* Control settings dialog (CtrlSetForm 238 x 286) */
+.mo-dlg {
+  background: #5c666c;
+  border: 1px solid #262c2f;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  z-index: 5;
+}
+.mo-dlg-title {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  padding-left: 7px;
+  font-size: 13px;
+  color: #eef2f3;
+  background: #4e585e;
+}
+.mo-dlg-close { position: absolute; right: 4px; top: 3px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: default; color: #eef2f3; }
+.mo-dlg-body { background: #3f454a; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3); }
+.mo-dlg input {
+  position: absolute;
+  box-sizing: border-box;
+  height: 19px;
+  padding: 0 4px;
+  background: #343a3e;
+  border: 1px solid #262c2f;
+  color: #eef2f3;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.mo-dlg input:focus { border-color: #8aa4b4; }
+.mo-dlg .mo-cap { font-weight: 400; }

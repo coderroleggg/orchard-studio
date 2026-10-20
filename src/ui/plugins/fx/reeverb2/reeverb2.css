@@ -1,0 +1,93 @@
+/* Reeverb 2 editor (FL 2026 skin, colours sampled from FL's manual screenshot) */
+.rv2-panel {
+  background: #6f6565;
+  color: #aab4b8;
+  font-family: "Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  font-stretch: condensed;
+}
+.rv2-main {
+  position: absolute;
+  left: 160px;
+  top: 0;
+  width: 370px;
+  height: 160px;
+  background: radial-gradient(130% 175% at 51% -8%, #687375 0%, #596265 32%, #4a5154 62%, #3b4143 100%);
+}
+.rv2-sep {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 160px;
+  background: #2a2620;
+}
+.rv2-cap {
+  position: absolute;
+  color: #b5c0c5;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+.rv2-logo {
+  position: absolute;
+  font-style: italic;
+  font-weight: 400;
+  color: #394043;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.rv2-pill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 15px;
+  height: 30px;
+  border-radius: 8px;
+  background: #2c3236;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.06);
+  cursor: default;
+}
+.rv2-pill-thumb {
+  position: absolute;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 35%, #c9cfd2, #9aa3a8 70%, #7b858b);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+  transition: top 60ms linear;
+}
+.rv2-led {
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #5c6569, #3a4246 70%);
+  box-shadow: 0 0 0 1.5px #2b3135, 0 0 0 2.5px #59636a;
+  cursor: default;
+}
+.rv2-led::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 40%, #7d878c, #50595e);
+}
+.rv2-led.on::after {
+  background: radial-gradient(circle at 45% 40%, #ffd9d4, #d98a8a 60%, #9c5e60);
+  box-shadow: 0 0 5px #e09a9a;
+}
+.rv2-wire { position: absolute; background: #2f3639; pointer-events: none; }
+.rv2-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  pointer-events: none;
+}

@@ -1,0 +1,119 @@
+/* Pitch Shifter editor (colours sampled from FL's screenshots) */
+.ps-panel {
+  background: #404d54;
+  font-family: 'Arial Narrow', 'Roboto Condensed', 'Helvetica Neue', var(--font-ui);
+  color: #d0dadd;
+  user-select: none;
+}
+.ps-body { background: #303a3f; border-radius: 7px; pointer-events: none; }
+.ps-group { background: #374145; border-radius: 6px; pointer-events: none; }
+.ps-tab {
+  border-radius: 7px 0 0 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+.ps-tab span {
+  transform: rotate(-90deg);
+  white-space: nowrap;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: #c5d1d6;
+  font-family: 'Avenir Next Condensed', 'Arial Narrow', var(--font-ui);
+}
+.ps-tab.on { background: #303a3f; }
+.ps-tab.on span { color: #ffffff; }
+.ps-tab:not(.on):hover span { color: #ffffff; }
+
+.ps-xy { cursor: crosshair; }
+.ps-title {
+  font-family: 'Avenir Next Condensed', 'Segoe UI', 'Arial Narrow', var(--font-ui);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 19px;
+  line-height: 27px;
+  color: rgba(150, 196, 214, 0.78);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.ps-menubtn {
+  background: #2a3236;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+.ps-menubtn:hover { background: #36424a; }
+
+.ps-value {
+  border-radius: 1px;
+  color: #22323a;
+  font-size: 14.5px;
+  text-align: center;
+  line-height: 19px;
+  font-family: 'Avenir Next Condensed', 'Arial Narrow', var(--font-ui);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ps-caption {
+  color: #d3dde1;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  font-family: 'Avenir Next Condensed', 'Arial Narrow', var(--font-ui);
+}
+.ps-slider, .ps-knob { cursor: ns-resize; }
+
+.ps-combo {
+  background: #2f393e;
+  border-radius: 2px;
+  color: #c9dbe2;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: center;
+  cursor: default;
+  font-family: 'Avenir Next Condensed', 'Arial Narrow', var(--font-ui);
+}
+.ps-combo:hover { background: #343f45; }
+.ps-combo-text { display: inline-block; width: 100%; padding-right: 8px; box-sizing: border-box; white-space: nowrap; }
+.ps-combo-arrow { position: absolute; right: 5px; top: 50%; margin-top: -4px; color: #8fa2aa; }
+
+.ps-strip { background: #303a3f; border-radius: 3px; pointer-events: none; }
+.ps-tbtn {
+  background: #2a3236;
+  color: #91a4ac;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 13px;
+  border-radius: 1px;
+  cursor: default;
+  font-family: var(--font-ui);
+}
+.ps-tbtn.on { color: #1f2d33; }
+
+.ps-mode { cursor: default; }
+.ps-mode-slot {
+  position: absolute;
+  background: #2a3236;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.ps-mode-ball {
+  position: absolute;
+  left: 1.5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #e9eef0, #b5bcbe 60%, #8a9194);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.ps-mode-cap { position: absolute; font-size: 11px; color: #a9b9c0; white-space: nowrap; font-family: 'Avenir Next Condensed', 'Arial Narrow', var(--font-ui); }
+.ps-mode-cap.on { color: #f2f6f7; }

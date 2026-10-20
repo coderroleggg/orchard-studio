@@ -1,0 +1,58 @@
+/* 3x Osc editor (FL: 3x Osc): colours sampled from FL's editor thumbnail */
+.xo-panel {
+  background: radial-gradient(ellipse 72% 120% at 51% -4%, #7b8990 0%, #6c7980 30%, #5d686e 62%, #4c555b 100%);
+  font-family: var(--font-ui);
+}
+.xo-bar { background: radial-gradient(ellipse 65% 170% at 45% 0%, #2c363c 0%, #252e33 55%, #1f272b 100%); }
+.xo-label {
+  color: #ccd4d8;
+  font-size: 11px;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+  overflow: visible;
+}
+.xo-label > span { display: inline-block; transform: scaleX(0.86); transform-origin: center; }
+.xo-label[style*="right"] > span { transform-origin: right; }
+.xo-label[style*="left;"] > span, .xo-label[style*="text-align: left"] > span { transform-origin: left; }
+.xo-label.big { font-size: 12px; }
+.xo-label.dim { color: #b7c0c5; }
+.xo-knob-text { fill: #dbe2e5; font: 300 13px var(--font-ui); letter-spacing: -0.02em; pointer-events: none; }
+.xo-tab-text { fill: #c3ccd0; font: 300 24px var(--font-ui); pointer-events: none; }
+.xo-slider { cursor: default; touch-action: none; }
+.xo-slider-groove {
+  position: absolute; left: 15px; width: 4px; top: 2px; bottom: 2px; border-radius: 2px;
+  background: #2a3237; box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.xo-slider-mid { position: absolute; left: 6px; width: 22px; height: 1px; background: rgba(214, 222, 226, 0.25); }
+.xo-slider-cap {
+  position: absolute; left: 4px; width: 26px; border-radius: 2px;
+  background: linear-gradient(180deg, #59626a 0%, #3c454b 48%, #2e363b 52%, #3a4248 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.xo-slider-line { position: absolute; left: 2px; right: 2px; top: 5px; height: 2px; background: #e24c3b; border-radius: 1px; }
+.xo-shapes { touch-action: none; }
+.xo-shape { position: absolute; display: flex; align-items: center; justify-content: center; cursor: default; }
+.xo-shape-dot {
+  position: absolute; left: 4px; top: 4px; width: 30px; height: 30px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #3e484d 0%, #2e373c 100%);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.xo-shape:not(.on):hover svg { filter: brightness(1.15); }
+.xo-inv { cursor: default; }
+.xo-switch { display: flex; align-items: center; gap: 7px; padding-left: 6px; cursor: default; }
+.xo-led {
+  width: 11px; height: 11px; border-radius: 50%; flex: none;
+  background: #1b2226; box-shadow: inset 0 0 0 1px #59646a;
+}
+.xo-led.on { background: #b1e758; box-shadow: 0 0 5px rgba(177, 231, 88, 0.7), inset 0 0 0 1px rgba(0, 0, 0, 0.25); }
+.xo-switch-cap { color: #c1cacf; font-size: 12px; font-weight: 300; letter-spacing: 0.04em; white-space: nowrap; display: inline-block; transform: scaleX(0.86); transform-origin: left; }
+.xo-title {
+  color: #8d999f; font: 300 47px var(--font-ui); letter-spacing: -0.01em; line-height: 72px;
+  transform: scaleX(0.82); transform-origin: left; white-space: nowrap; pointer-events: none;
+}
+.xo-since {
+  color: #5a666d; font: italic 21px 'Italianno', 'Snell Roundhand', 'Brush Script MT', cursive;
+  text-align: right; line-height: 38px; white-space: nowrap; pointer-events: none;
+}

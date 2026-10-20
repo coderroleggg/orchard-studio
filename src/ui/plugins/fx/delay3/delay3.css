@@ -1,0 +1,112 @@
+/* Delay 3 editor (FL 2026 vector skin; colours sampled from FL's manual screenshot) */
+.d3-panel {
+  background:
+    radial-gradient(ellipse 78% 130% at 54% 18%, #6f7b82 0%, #66727a 30%, #59636a 60%, #4a5358 100%);
+  color: #d6dcdf;
+  font-family: "Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  font-stretch: condensed;
+  box-shadow: inset 0 0 0 1px #1d2428;
+}
+
+/* section bodies are a touch lighter than the gaps; the global light shows through */
+.d3-sec {
+  position: absolute;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(20, 26, 30, 0.22);
+  pointer-events: none;
+}
+.d3-sec.dim { background: rgba(0, 0, 0, 0.07); }
+.d3-inset {
+  position: absolute;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.085);
+  pointer-events: none;
+}
+.d3-title {
+  position: absolute;
+  height: 18px;
+  line-height: 18px;
+  border-radius: 3px 3px 0 0;
+  background: rgba(16, 22, 26, 0.36);
+  color: #d1dade;
+  font-size: 12.6px;
+  font-weight: 400;
+  letter-spacing: 0.045em;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.d3-title.dim { color: #abb4b8; }
+.d3-title.inner { border-radius: 3px; }
+
+.d3-cap {
+  color: #d6dcdf;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-stretch: normal;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.d3-cap.boxed {
+  border: 1px solid #96a0a6;
+  border-radius: 2px;
+}
+
+.d3-led { display: flex; align-items: center; cursor: default; }
+.d3-led-dot {
+  width: 8.5px;
+  height: 8.5px;
+  margin-left: 5px;
+  border-radius: 50%;
+  flex: none;
+  background: radial-gradient(circle at 50% 40%, #3a4247 0%, #2a3135 70%);
+  box-shadow: 0 0 0 1.2px #1d2428, 0 0 0 2px #848d92;
+}
+.d3-led-dot.on {
+  background: radial-gradient(circle at 50% 40%, #f2ffd0 0%, #cdff6a 55%, #9ccc3c 100%);
+  box-shadow: 0 0 0 1.2px #1d2428, 0 0 0 2px #848d92, 0 0 5px rgba(205, 255, 106, 0.6);
+}
+.d3-led-cap {
+  margin-left: 5px;
+  color: #d6dcdf;
+  font-size: 8.6px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.d3-pill {
+  position: absolute;
+  background: #454e52;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  cursor: default;
+}
+.d3-pill-ball {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 40%, #d0d6d9 0%, #b9c0c4 60%, #9ea6aa 100%);
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.5);
+}
+.d3-pill-label {
+  position: absolute;
+  color: #d6dcdf;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-stretch: normal;
+  font-size: 10px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.d3-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-top: 4.5px solid transparent;
+  border-bottom: 4.5px solid transparent;
+  border-left: 6px solid #46505a;
+  pointer-events: none;
+}

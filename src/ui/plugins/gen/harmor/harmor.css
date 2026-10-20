@@ -1,0 +1,183 @@
+/* Harmor editor (FL 2026 look, original drawing; colours from FL's form and painters) */
+.hm-panel {
+  background: #26282d;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #d8dadc;
+}
+.hm-ctl { position: absolute; box-sizing: border-box; cursor: default; touch-action: none; user-select: none; }
+
+.hm-cap { font: 10px Arial, Helvetica, sans-serif; fill: rgba(255, 255, 255, 0.78); }
+.hm-cap-abs { position: absolute; font: 600 10px Arial, Helvetica, sans-serif; color: rgba(255, 255, 255, 0.72); pointer-events: none; transform: scaleX(0.85); transform-origin: left; white-space: nowrap; }
+.hm-switch-cap { font: 600 9px Arial, Helvetica, sans-serif; fill: rgba(195, 191, 185, 0.62); }
+.hm-switch-cap.on { fill: #f2efe9; }
+.hm-dbl { font: 600 9px Arial, Helvetica, sans-serif; }
+
+/* TQuickCombo */
+.hm-combo {
+  display: flex;
+  align-items: center;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.05);
+  font: bold 11px Arial, Helvetica, sans-serif;
+  overflow: hidden;
+  padding-left: 5px;
+}
+.hm-combo.sober { border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.08); }
+.hm-combo:hover { filter: brightness(1.12); }
+.hm-combo-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 2px; }
+.hm-combo-arrow {
+  width: 13px;
+  align-self: stretch;
+  position: relative;
+  background: rgba(0, 0, 0, 0.18);
+  border-left: 1px solid rgba(0, 0, 0, 0.35);
+}
+.hm-combo-arrow::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -30%);
+  border: 3.5px solid transparent;
+  border-top-color: currentColor;
+  border-bottom-width: 0;
+}
+.hm-combo svg { color: inherit; }
+
+/* digit wheels */
+.hm-digi {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  font-family: 'Arial Narrow', Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  cursor: ns-resize;
+}
+.hm-mdigi {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  color: #111;
+  font: 12px 'Arial Narrow', Arial, Helvetica, sans-serif;
+  cursor: ns-resize;
+}
+.hm-mdigi span { display: inline-block; width: 7px; text-align: center; }
+.hm-mdigi span.dot { width: 4px; }
+
+/* buttons */
+.hm-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #262b2f;
+  border-radius: 50%;
+  color: #b8bdc1;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.hm-btn:hover { color: #fff; background: #30363b; }
+.hm-btn.on { color: #ffb46b; }
+.hm-btn-text { font: 12px Arial, Helvetica, sans-serif; color: #b3b6bf; letter-spacing: 0.02em; }
+
+/* part select */
+.hm-partsel { display: flex; gap: 2px; }
+.hm-partsel-half {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 22px Arial, Helvetica, sans-serif;
+  color: #6c737a;
+  background: linear-gradient(180deg, #2c3236, #1e2428);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.hm-partsel-half.on { color: #3a2410; background: linear-gradient(180deg, #f7ae56, #aa783b); }
+
+/* page selector */
+.hm-pages { display: block; }
+.hm-page {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 600 12px Arial, Helvetica, sans-serif;
+  color: #919392;
+  background: linear-gradient(180deg, #373d40, #20262a);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+.hm-page.on { color: #1b1d1a; }
+
+/* scopes, memo */
+.hm-scope { overflow: hidden; border-radius: 2px; }
+.hm-memo {
+  resize: none;
+  border: none;
+  outline: none;
+  background: #31373e;
+  color: #d1d8df;
+  font: 11px Arial, Helvetica, sans-serif;
+  line-height: 13px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  touch-action: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+/* envelope editor frame */
+.hm-envframe { position: absolute; background: #181f2e; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6); }
+.hm-envpanel { position: absolute; background: #2a2c42; }
+.hm-envpanel span { position: absolute; font: 600 8px Arial, Helvetica, sans-serif; color: #b5b7cd; text-align: center; pointer-events: none; }
+.hm-toolbar { position: absolute; background: #2a2c42; }
+.hm-envnote { display: flex; align-items: center; justify-content: center; font: 11px Arial, Helvetica, sans-serif; color: rgba(200, 210, 230, 0.55); background: #1a2030; }
+.hm-ptoggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font: 600 8px Arial, Helvetica, sans-serif;
+  color: #b5b7cd;
+  padding-left: 3px;
+}
+.hm-ptoggle-led { width: 7px; height: 7px; border-radius: 50%; background: #3b3e58; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5); }
+.hm-ptoggle-led.on { background: #9fc0ff; box-shadow: 0 0 4px #9fc0ff; }
+.hm-tool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6a6d88;
+  border-radius: 3px;
+}
+.hm-tool:hover { color: #afb1c7; background: rgba(255, 255, 255, 0.05); }
+.hm-tool.on { background: rgba(255, 255, 255, 0.06); }
+.hm-scroller { overflow: hidden; }
+
+/* order lists */
+.hm-order { background: rgba(0, 0, 0, 0.25); border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5); }
+.hm-order-row {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font: 600 9px Arial, Helvetica, sans-serif;
+  color: #c6cbd0;
+  background: linear-gradient(180deg, #3a3f45, #2e3237);
+  border-radius: 2px;
+  padding-left: 3px;
+}
+.hm-order-row.drag { background: linear-gradient(180deg, #a77a3c, #7c5a2c); color: #fff; }
+.hm-order-n { width: 12px; color: rgba(255, 255, 255, 0.38); text-align: right; }
+
+/* keyboard, visual feedback */
+.hm-kb { overflow: hidden; }
+.hm-vis { background: #101215; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }

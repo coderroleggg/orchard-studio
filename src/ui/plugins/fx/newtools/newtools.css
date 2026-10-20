@@ -1,0 +1,255 @@
+/* Newtone / Newtime editors: toolbar, buttons, piano roll / wave view
+   (colours sampled from FL's manual screenshots) */
+.ntl-panel {
+  background: #2a363e;
+  color: #d6dde1;
+  outline: none;
+}
+.ntl-toolbar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 727px;
+  height: 88px;
+  background: radial-gradient(ellipse 75% 140% at 52% 0%, #363f47 0%, #2c373e 42%, #252e34 75%, #20282d 100%);
+  border-bottom: 1px solid #39434a;
+  box-sizing: border-box;
+}
+.ntl-logo {
+  position: absolute;
+  font-family: var(--font-ui), 'Segoe UI', sans-serif;
+  font-weight: 700;
+  font-size: 27px;
+  letter-spacing: -0.6px;
+  line-height: 30px;
+  background: linear-gradient(180deg, #e3e9ec 0%, #b8c3c8 45%, #7d8a91 52%, #a9b5bb 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow: none;
+}
+.ntl-cap {
+  position: absolute;
+  font-size: 8px;
+  line-height: 9px;
+  letter-spacing: 0.03em;
+  color: #6d7a81;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.ntl-val {
+  position: absolute;
+  font-size: 11px;
+  line-height: 14px;
+  color: #dfe5e8;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ntl-val.dim { color: #8d989e; }
+.ntl-btn {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #2f363b 0%, #283035 100%);
+  border: 1px solid #1d2326;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  color: #eef3f5;
+  cursor: default;
+}
+.ntl-btn:hover { background: linear-gradient(180deg, #384046 0%, #2e363b 100%); }
+.ntl-btn.down { background: #1f2528; }
+.ntl-btn.green {
+  background: radial-gradient(ellipse at 50% 40%, #8cf89a 0%, #58e06a 55%, #3cc650 100%);
+  border-color: #2a8a36;
+  color: #1d5a26;
+}
+.ntl-btn.pink {
+  background: radial-gradient(ellipse at 50% 40%, #fbb8f0 0%, #f088de 60%, #e070cc 100%);
+  border-color: #9a4a8a;
+  color: #7a1f6a;
+}
+.ntl-btn.lit { color: #ffd38a; }
+.ntl-group {
+  position: absolute;
+  box-sizing: border-box;
+  background: #252c30;
+  border: 1px solid #1b2023;
+  border-radius: 2px;
+}
+.ntl-tbtn {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 3px;
+  background: linear-gradient(180deg, #30373c 0%, #2a3136 100%);
+  border-right: 1px solid #1b2023;
+  color: #f4f7f8;
+  cursor: default;
+}
+.ntl-tbtn:hover { background: linear-gradient(180deg, #3a4247 0%, #31393e 100%); }
+.ntl-tbtn .tri {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid #8f9a9f;
+  margin-top: 1px;
+}
+.ntl-sync {
+  position: absolute;
+  box-sizing: border-box;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 12px;
+  text-align: center;
+  color: #c9d1d5;
+  background: #3a3f42;
+  border-radius: 2px;
+  cursor: default;
+}
+.ntl-sync.on { background: #e9a23b; color: #2a1d08; }
+.ntl-knob-cap {
+  position: absolute;
+  font-size: 9px;
+  line-height: 9px;
+  font-weight: 600;
+  color: #dfe6ea;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.ntl-sbtn {
+  position: absolute;
+  box-sizing: border-box;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  color: #d8dfe3;
+  background: linear-gradient(180deg, #3b4247, #32393e);
+  border: 1px solid #1d2326;
+  border-radius: 2px;
+  cursor: default;
+}
+.ntl-sbtn:hover { background: linear-gradient(180deg, #454d52, #3a4247); }
+.ntl-view { position: absolute; outline: none; }
+.ntl-view canvas { display: block; touch-action: none; }
+.ntl-drop {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #a9b5bb;
+  font-size: 13px;
+  pointer-events: none;
+  text-align: center;
+}
+.ntl-drop b { color: #dfe6ea; font-weight: 600; font-size: 15px; }
+.ntl-drop .ntl-load {
+  pointer-events: auto;
+  padding: 5px 14px;
+  border-radius: 3px;
+  background: #3b4449;
+  border: 1px solid #1f2528;
+  color: #e7ecef;
+  cursor: default;
+}
+.ntl-drop .ntl-load:hover { background: #465056; }
+.ntl-status {
+  position: absolute;
+  font-size: 10px;
+  color: #ffcf8a;
+  pointer-events: none;
+  white-space: nowrap;
+}
+/* Sample properties dialog */
+.ntl-dlg-shade { position: absolute; inset: 0; background: rgba(10, 14, 16, 0.35); }
+.ntl-dlg {
+  position: absolute;
+  width: 348px;
+  height: 154px;
+  background: #4a5156;
+  border: 1px solid #262b2e;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+  color: #e5eaed;
+  font-size: 12px;
+}
+.ntl-dlg-title {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 24px;
+  line-height: 24px;
+  padding-left: 6px;
+  font-size: 14px;
+  color: #f1f4f6;
+  background: #4f575c;
+}
+.ntl-dlg-x { position: absolute; right: 6px; top: 0; width: 18px; text-align: center; font-size: 15px; cursor: default; }
+.ntl-dlg-panel {
+  position: absolute;
+  left: 1px;
+  top: 26px;
+  width: 346px;
+  height: 87px;
+  background: #3e4448;
+  border: 1px solid #353b3f;
+  box-sizing: border-box;
+}
+.ntl-dlg-tab {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 16px;
+  padding: 0 14px 0 4px;
+  line-height: 16px;
+  font-size: 11px;
+  font-weight: 600;
+  background: linear-gradient(110deg, #59626a 80%, transparent 80%);
+  color: #f0f3f5;
+}
+.ntl-dlg input[type='text'] {
+  position: absolute;
+  box-sizing: border-box;
+  background: #2e3438;
+  border: 1px solid #262b2e;
+  color: #f2f5f7;
+  font: inherit;
+  font-size: 12px;
+  padding: 0 4px;
+  outline: none;
+}
+.ntl-dlg-btn {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #353b3f, #2c3236);
+  border: 1px solid #1f2427;
+  color: #e9edef;
+  cursor: default;
+}
+.ntl-dlg-btn:hover { background: linear-gradient(180deg, #3f464a, #343a3e); }
+.ntl-dlg-radio { position: absolute; display: flex; align-items: center; gap: 5px; cursor: default; }
+.ntl-dlg-radio i {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid #1f2427;
+  background: #2b3135;
+  box-sizing: border-box;
+}
+.ntl-dlg-radio.on i { background: radial-gradient(circle, #ffd0a0 0, #ff8a58 45%, #b8492a 100%); border-color: #ffd7c6; }

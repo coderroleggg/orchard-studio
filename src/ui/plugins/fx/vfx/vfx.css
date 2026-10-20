@@ -1,0 +1,175 @@
+/* Shared VFX editor styles (colours sampled from FL 2026 screenshots) */
+.vfx-title {
+  position: absolute;
+  background: #1f282d;
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  pointer-events: none;
+}
+.vfx-title-vfx {
+  position: absolute;
+  left: 10px;
+  bottom: -2px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -1px;
+  color: #414a4f;
+  line-height: 1;
+}
+.vfx-title-name {
+  position: absolute;
+  left: 94px;
+  bottom: 9px;
+  font-size: 17px;
+  color: #93a9b9;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.vfx-combo {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 4px 0 5px;
+  font-size: 13px;
+  cursor: default;
+  overflow: hidden;
+  user-select: none;
+}
+.vfx-combo:hover { filter: brightness(1.05); }
+.vfx-combo-text { flex: 1; white-space: nowrap; overflow: hidden; }
+.vfx-combo-arrow { flex: none; margin-left: 3px; }
+
+.vfx-tab {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.vfx-led-switch {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  font-size: 13px;
+  color: #c9d2d7;
+  cursor: default;
+  white-space: nowrap;
+}
+.vfx-led {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 2px solid #d9dee1;
+  background: radial-gradient(circle at 45% 40%, #59636a, #2e3439 75%);
+}
+
+/* FL envelope editor (TMEnvEditor) */
+.vfx-env { background: #3b4348; box-shadow: inset 0 0 0 1px #2a3135; overflow: hidden; }
+.vfx-env-scroll { position: absolute; background: #2f363a; border-top: 1px solid #262c30; box-sizing: border-box; cursor: default; }
+.vfx-env-thumb { position: absolute; top: 2px; bottom: 2px; background: #5b666c; border-radius: 3px; }
+.vfx-env-thumb:hover { background: #6a767c; }
+.vfx-env-arrow { position: absolute; top: 0; width: 12px; height: 100%; }
+.vfx-env-arrow::after { content: ''; position: absolute; left: 50%; top: 50%; border: 3.5px solid transparent; }
+.vfx-env-arrow.l { left: 1px; }
+.vfx-env-arrow.l::after { border-right-color: #9aa6ac; border-left-width: 0; transform: translate(-60%, -50%); }
+.vfx-env-arrow.r { right: 1px; }
+.vfx-env-arrow.r::after { border-left-color: #9aa6ac; border-right-width: 0; transform: translate(-40%, -50%); }
+.vfx-env-toolbar { position: absolute; background: #333b40; box-sizing: border-box; }
+.vfx-env-tool { position: absolute; display: flex; align-items: center; justify-content: center; cursor: default; border-radius: 2px; }
+.vfx-env-tool:hover { background: rgba(255, 255, 255, 0.07); }
+
+/* Keyboard Splitter */
+.vfx-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2b3236;
+  border-right: 1px solid #3a4246;
+  font-size: 19px;
+  font-stretch: condensed;
+  cursor: default;
+}
+.vfx-zone:hover { filter: brightness(1.15); }
+.vfx-envsel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2b3236;
+  color: #e7ecee;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: default;
+}
+.vfx-envsel.on { background: #5febff; color: #16343a; }
+.vfx-manual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #353d42;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  color: #e3e8ea;
+  font-size: 13px;
+  cursor: default;
+}
+.vfx-manual:hover { background: #3d464b; }
+.vfx-manual.on { background: #5febff; color: #16343a; }
+.vfx-led-switch.small { font-size: 8px; font-weight: 600; letter-spacing: 0.06em; gap: 4px; color: #c8d0dc; }
+.vfx-led-switch.small .vfx-led { width: 10px; height: 10px; border-width: 1.5px; }
+
+/* VFX Envelope */
+.vfx-artbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2d3438;
+  color: #e1e7ec;
+  font-size: 13px;
+  border-radius: 2px;
+  cursor: default;
+}
+.vfx-artbtn:hover { background: #363e43; }
+.vfx-artbtn.on { background: #ffb32e; color: #2a2016; }
+.vfx-colorbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: #2c4a33;
+  font-size: 13px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  cursor: default;
+}
+.vfx-notebox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: 6px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #a5535c, #974650);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px #7a343c;
+  color: #f4e7e8;
+  font-size: 15px;
+  font-stretch: condensed;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.vfx-radio {
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 1.5px solid #c9d0dc;
+  cursor: default;
+}
+.vfx-radio.on::after { content: ''; position: absolute; left: 3px; top: 3px; right: 3px; bottom: 3px; border-radius: 50%; background: #e9eef4; }
+/* FL's VFX editors use a narrow face for captions */
+.vfx-cond .fxk-label, .vfx-cond .vfx-combo, .vfx-cond .vfx-led-switch { font-stretch: 80%; }

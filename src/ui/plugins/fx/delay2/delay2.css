@@ -1,0 +1,81 @@
+/* Delay 2 editor (FL's older dark plugin skin; colours sampled from FL's manual screenshot at 2x) */
+.d2-panel {
+  background: radial-gradient(ellipse 70% 120% at 50% 20%, #555555 0%, #4b4b4b 40%, #414141 75%, #3c3c3c 100%);
+  color: #ced4d8;
+  font-family: "Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  font-stretch: condensed;
+  box-shadow: inset 0 0 0 1px #1f2529;
+}
+.d2-strip {
+  position: absolute;
+  left: 0;
+  top: 78.25px;
+  width: 400px;
+  height: 21.75px;
+  background: linear-gradient(90deg, #353535 0%, #424242 50%, #363636 100%);
+  pointer-events: none;
+}
+.d2-vsep, .d2-hsep { position: absolute; background: #1e2428; pointer-events: none; }
+.d2-vsep { top: 0; width: 1px; height: 78px; box-shadow: 1px 0 0 rgba(255, 255, 255, 0.05); }
+.d2-hsep { left: 0; top: 77.25px; width: 400px; height: 1px; }
+.d2-title {
+  position: absolute;
+  top: 3px;
+  height: 12px;
+  line-height: 12px;
+  color: #cdd4d8;
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.d2-cap {
+  position: absolute;
+  height: 13px;
+  line-height: 13px;
+  color: #ced4d8;
+  font-size: 9.6px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.d2-radio { position: absolute; left: 0; width: 53px; display: flex; align-items: center; cursor: default; }
+.d2-led {
+  width: 8px;
+  height: 8px;
+  margin-left: 2px;
+  border-radius: 50%;
+  flex: none;
+  background: radial-gradient(circle at 50% 42%, #737a7d 0%, #687073 55%, #5a6164 100%);
+  box-shadow: 0 0 0 1px #181818, 0 0 0 1.6px #545a5d;
+}
+.d2-led.on {
+  background: radial-gradient(circle at 50% 42%, #ffd2bc 0%, #ffab86 45%, #f7845e 100%);
+  box-shadow: 0 0 0 1px #451919, 0 0 0 1.6px #a33a23, 0 0 4px rgba(255, 140, 100, 0.55);
+}
+.d2-radio-cap {
+  margin-left: 4px;
+  color: #ced4d8;
+  font-size: 9.4px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.d2-name {
+  position: absolute;
+  right: 8px;
+  top: 80px;
+  height: 18px;
+  line-height: 18px;
+  color: #f4f6f7;
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  pointer-events: none;
+}
