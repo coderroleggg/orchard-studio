@@ -1,0 +1,148 @@
+/* BeepMap editor (FL: BeepMap, SynthPanel 380 x 170): colours sampled from FL's plugin database thumbnail, original drawing. */
+.bm-panel {
+  background:
+    radial-gradient(70% 115% at 50% -8%, #354b5a 0%, #2c3f4b 38%, #243540 66%, #1d2930 100%);
+  color: #aebcc5;
+  font-family: var(--font-ui);
+}
+
+.bm-label {
+  position: absolute;
+  box-sizing: border-box;
+  color: #7e919d;
+  font: 700 8px/9px var(--font-ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* TQuickCombo, FS_SoberCombo: dark rounded box, caption left, arrow right */
+.bm-combo {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0 22px 0 9px;
+  background: linear-gradient(#2d3338, #272c30);
+  border: 1px solid #1a1f23;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: #e3e9ed;
+  font: 400 13px/1 Arial, "Helvetica Neue", sans-serif;
+  cursor: default;
+  user-select: none;
+}
+.bm-combo:hover { background: linear-gradient(#32393f, #2b3136); }
+.bm-combo::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  margin-top: -2px;
+  border: 3px solid transparent;
+  border-top: 4px solid #9aa7af;
+  border-bottom: 0;
+}
+
+/* TSysBtn FS_Sober: flat dark buttons sharing one strip */
+.bm-btn {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(#292e32, #24282c);
+  border: 1px solid #1a1e21;
+  color: #a2afb7;
+  font: 700 10px/1 var(--font-ui);
+  letter-spacing: 0.02em;
+  cursor: default;
+  user-select: none;
+}
+.bm-btn:hover { background: linear-gradient(#30363a, #292e32); color: #dfe7eb; }
+.bm-btn:active { background: #1f2326; }
+.bm-btn.first { border-radius: 3px 0 0 3px; }
+.bm-btn.last { border-radius: 0 3px 3px 0; }
+
+/* TVectorCheckBox: a round lamp and the caption */
+.bm-sw {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #b7c4cc;
+  font: 400 11px/12px var(--font-ui);
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+.bm-sw:hover { color: #e1e9ee; }
+.bm-lamp {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, #353f47 0%, #2b343b 60%, #263037 100%);
+  border: 1px solid #55656f;
+  box-shadow: inset 0 0 0 1px #1b2227;
+}
+.bm-lamp.on {
+  background: radial-gradient(circle at 45% 40%, #ffb27a 0%, #f57a43 45%, #d9562a 100%);
+  border-color: #ff9a62;
+  box-shadow: 0 0 5px rgba(255, 130, 70, 0.7);
+}
+
+.bm-title {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #566c7b;
+  font: italic 300 27px/1 "Open Sans Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* TVectorDigiWheel: the Max bitmap height, a dark red box */
+.bm-height {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  background: linear-gradient(#703d44, #5f3238);
+  border: 1px solid #3c1f24;
+  border-radius: 2px;
+  overflow: hidden;
+  color: #f1c89a;
+  font: 400 13px/1 var(--font-ui);
+}
+.bm-height-val { flex: 1; display: flex; align-items: center; justify-content: center; cursor: ns-resize; touch-action: none; }
+.bm-height-arrows { width: 8px; display: flex; flex-direction: column; border-left: 1px solid rgba(0, 0, 0, 0.25); }
+.bm-height-arrows > div { flex: 1; position: relative; cursor: default; }
+.bm-height-arrows > div::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border: 2.5px solid transparent;
+}
+.bm-height-arrows > div:first-child::after { border-bottom: 3px solid #d9ae85; border-top: 0; transform: translate(-50%, -45%); }
+.bm-height-arrows > div:last-child::after { border-top: 3px solid #d9ae85; border-bottom: 0; transform: translate(-50%, -55%); }
+.bm-height-arrows > div:hover::after { filter: brightness(1.35); }
+
+/* the bitmap panel (TVectorPanel psSober + BmpDisplay) */
+.bm-bmp {
+  position: absolute;
+  box-sizing: border-box;
+  background: #0e1317;
+  border: 1px solid #070a0c;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+.bm-bmp.drop { box-shadow: inset 0 0 0 2px #f57a43; }
+.bm-bmp canvas { image-rendering: auto; }

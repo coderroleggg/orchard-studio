@@ -147,16 +147,20 @@ export class HarmorChorus {
   private wr = 0;
   /** plug+0x2970. */
   private dry = 1;
+  /** Frames per chunk: 384 in Harmor's unit; a plugin that renders its whole block at once (Ogun) passes its block size. */
+  private readonly chunk: number;
   /** REND+0x20 (one chunk). */
-  private readonly wet = new Float32Array(2 * CHUNK);
+  private readonly wet: Float32Array;
 
-  constructor(sampleRate: number, maxBlock: number) {
+  constructor(sampleRate: number, maxBlock: number, chunk = CHUNK) {
     void maxBlock; // FL chunks by 384 frames whatever the block size
+    this.chunk = chunk > 0 ? chunk | 0 : CHUNK;
+    this.wet = new Float32Array(2 * this.chunk);
     this.sr = sampleRate | 0;
     // largest ring for the controls' ranges: max(center + base) <= (2 * 1102.5 + 4410 * 1.069^2) / ratio + 8
     const ratio = F(44100 / this.sr);
     const maxD = (2 * 1102.5 + 4410 * 1.1428) / ratio + 8;
-    const frames = CHUNK + Math.ceil(maxD * 1.001) + 16;
+    const frames = this.chunk + Math.ceil(maxD * 1.001) + 16;
     this.ring = new Float32Array(2 * frames);
   }
 
@@ -193,12 +197,36 @@ export class HarmorChorus {
     this.flangerUpdate();
   }
 
+  /**
+   * Direct entry for plugins that run the same TStereoFlanger with their own parameter laws (Ogun_x64's refresh 0x6d970 sets
+   * these object fields from |mix| / 128 instead of Harmor's mix law): float32 depth / speed / delay / spread / cross, the bus
+   * gain `dry` and the signed wet gain `wet`; order <= 0 frees the object. Values are limited to the ranges the ring is sized for.
+   */
+  setFields(order: number, depth: number, speed: number, delay: number, spread: number, cross: number, dry: number, wet: number): void {
+    const o = clampI(order, 0, MAX_ORDER);
+    if (o <= 0) {
+      this.exists = false;
+      return;
+    }
+    if (!this.exists) this.create();
+    const lim = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
+    this.order = o;
+    this.depth = F(lim(depth, 0, 1));
+    this.speed = F(lim(speed, 0, 1));
+    this.delay = F(lim(delay, 0, 1));
+    this.spread = F(lim(spread, 0, 1));
+    this.cross = F(lim(cross, -1, 1));
+    this.dry = F(dry);
+    this.mix = F(wet);
+    this.flangerUpdate();
+  }
+
   /** FL's 0xeab40 on bus 0 (interleaved stereo, n frames, in place). */
   process(bus: Float32Array, n: number, tailActive: boolean): void {
     let pos = 0;
     let rest = n;
     while (rest > 0) {
-      const m = rest > CHUNK ? CHUNK : rest;
+      const m = rest > this.chunk ? this.chunk : rest;
       if (this.exists) {
         if (tailActive) {
           this.ringWrite(bus, pos, m);
@@ -328,7 +356,7 @@ export class HarmorChorus {
     this.len = (rne32(maxD) + 8) | 0;
     // 0x4617f0(obj, 384, len)
     const ln = this.len < 1 ? 1 : this.len;
-    const bytes = 8 * (CHUNK + ln);
+    const bytes = 8 * (this.chunk + ln);
     const changed = bytes !== this.size;
     if (changed) {
       // 0x461740: ReAllocMem + clear, read = start, write = read + len frames

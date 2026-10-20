@@ -107,8 +107,10 @@ export interface GenInstance {
   /**
    * Start a voice for a note (FL's TriggerVoice). The channel calls it at the
    * voice's first sample and renders the voice from there. null = no sound.
+   * `ctx` is the current block's context (tempo, transport), for plugins that
+   * read the tempo when a voice starts (FL sends it as FPE_Tempo events).
    */
-  triggerVoice?(params: GenVoiceParams): GenVoice | null;
+  triggerVoice?(params: GenVoiceParams, ctx?: GenContext): GenVoice | null;
 
   // ------------------------------------------------- 'events' instruments
   /** A note starts `frameOffset` samples into the next render() call. */

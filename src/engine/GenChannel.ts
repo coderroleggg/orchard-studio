@@ -201,7 +201,7 @@ export class GenChannel extends InstrumentChannel<GenChannelVoice> {
       this.updateLevels(v, s);
       if (!v.started) {
         v.started = true;
-        v.gv = inst.triggerVoice?.(v.params) ?? null;
+        v.gv = inst.triggerVoice?.(v.params, this.ctx) ?? null;
         if (v.gv && v.released && pluginRelease) v.gv.release();
       }
       const gv = v.gv;

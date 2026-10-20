@@ -96,8 +96,9 @@ to the engine automatically, src/audio/engineSamples.ts).
 
 - `setParams(p)`: the whole state on every edit and automation step.
   Precompute there.
-- `'voices'` plugins: `triggerVoice(params)` returns a `GenVoice` (or null)
-  when the voice's first sample is due; the channel then calls
+- `'voices'` plugins: `triggerVoice(params, ctx?)` returns a `GenVoice` (or null)
+  when the voice's first sample is due (`ctx`: the block's context, e.g. the
+  tempo a plugin reads when a voice starts); the channel then calls
   `voice.render(L, R, n)` every control step (n <= 16, buffers start at 0 and
   arrive zeroed; add the voice; return false once it has finished),
   `voice.release()` at the note off (FL's Voice_Release) and `voice.kill()`

@@ -244,6 +244,35 @@ export class HarmorReverb {
     this.ramp.set(gain, gain);
   }
 
+  /**
+   * Direct entry for plugins that run the same TFruityReverb with their own parameter laws (Ogun_x64's refresh 0x6d6d0):
+   * predelay in samples (a change re-initialises the lines), decay in samples (float32), low cut in Hz (0 = off), high cut
+   * and high damping in Hz / 100 (0 = off), room size 1..100, diffusion, colour 0..4.
+   */
+  setFields(f: { predelay: number; decay: number; lowcut: number; highcut: number; damp: number; room: number; diff: number; color: number }): void {
+    if (!this.on) this.create();
+    const smp = Math.max(0, f.predelay | 0);
+    if (smp !== this.predelay) {
+      this.predelay = smp;
+      this.init(); // reallocates: all lines and filter states cleared
+    }
+    this.dirty = true;
+    this.decay = f32(f.decay);
+    this.lowcut = f32(f.lowcut);
+    this.highcut = f32(f.highcut);
+    this.damp = f32(f.damp);
+    this.room = f.room < 1 ? 1 : f.room > 100 ? 100 : f.room | 0;
+    this.diff = f.diff | 0;
+    this.color = f.color | 0;
+  }
+
+  /** The libreverb call of a plugin that does its own mono sum and wet add (Ogun's 0x26adb0): coefficients when dirty, then the engine. */
+  runMono(mono: Float32Array, wet: Float32Array, n: number): void {
+    if (!this.on || n <= 0) return;
+    if (this.dirty) this.coefs();
+    this.engine(mono, wet, n);
+  }
+
   /** FL's unit 0xeaf70 on interleaved bus 0 (n frames, in place). */
   process(bus: Float32Array, n: number): void {
     if (!this.on) return;

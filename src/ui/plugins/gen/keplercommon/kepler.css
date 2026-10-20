@@ -1,0 +1,86 @@
+/* Kepler / Kepler Exo editors: small shared styles (colours come from the skin, see skin.ts) */
+.kp-abs { position: absolute; box-sizing: border-box; }
+
+.kp-pad {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: default;
+  touch-action: none;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.kp-pad:hover { filter: brightness(1.07); }
+
+.kp-led {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 2px;
+}
+
+.kp-lever { position: absolute; box-sizing: border-box; touch-action: none; cursor: default; }
+.kp-lever-label { position: absolute; white-space: nowrap; font-size: 8px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; display: flex; align-items: center; }
+
+.kp-combo {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0 14px 0 5px;
+  font-size: 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: default;
+  border-radius: 3px;
+}
+.kp-combo-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kp-combo:hover { filter: brightness(1.18); }
+.kp-combo::after {
+  content: '';
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  margin-top: -1px;
+  border: 3px solid transparent;
+  border-top: 4px solid currentColor;
+  border-bottom: 0;
+  opacity: 0.75;
+}
+
+.kp-seg { position: absolute; box-sizing: border-box; display: flex; overflow: hidden; border-radius: 3px; }
+.kp-seg-cell {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: default;
+  white-space: nowrap;
+}
+.kp-seg-cell:hover { filter: brightness(1.2); }
+
+.kp-btn {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+.kp-btn:hover { filter: brightness(1.25); }
+
+.kp-title {
+  position: absolute;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  pointer-events: none;
+}

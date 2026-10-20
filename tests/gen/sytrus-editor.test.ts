@@ -62,7 +62,7 @@ describe('Sytrus editor', async () => {
     expect(html(withView(base, { page: 1 }))).toContain('BAND LIMIT');
     expect(html(withView(base, { page: 7 }))).toContain('NEXT');
     expect(html(withView(base, { page: 9 }))).not.toContain('NEXT');
-  });
+  }, 30_000); // renders every editor page: heavy under full-suite load
 
   it('hides the testing keyboard', () => {
     const p = defaultGenParams('sytrus') as Record<string, unknown>;

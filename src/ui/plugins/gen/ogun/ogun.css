@@ -1,0 +1,169 @@
+/* Ogun editor (FL 2026 layout; original drawing, colours sampled from FL's form properties and plugin thumbnail) */
+.og-panel {
+  background: #444b51;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #d8dadc;
+  overflow: hidden;
+}
+.og-ctl { position: absolute; box-sizing: border-box; cursor: default; touch-action: none; user-select: none; }
+.og-none { pointer-events: none; }
+
+/* captions painted by FL's TQuickLabel (P_SmallBold: a small bold font) */
+.og-lbl {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: none;
+  white-space: nowrap;
+  font: 700 8px Arial, Helvetica, sans-serif;
+  letter-spacing: 0.03em;
+  text-align: center;
+  line-height: 9px;
+}
+.og-badge {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: none;
+  text-align: center;
+  font: 700 8px Arial, Helvetica, sans-serif;
+  border-radius: 2px;
+}
+
+/* TVectorDigiWheel */
+.og-digi {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.32), inset 0 -8px 8px -6px rgba(0, 0, 0, 0.22);
+  font-family: 'Arial Narrow', Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  cursor: ns-resize;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.og-digi.flat { box-shadow: none; }
+.og-digi:hover { filter: brightness(1.12); }
+
+/* TQuickCombo (FS_SoberFlat) */
+.og-combo {
+  display: flex;
+  align-items: center;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  font: 600 11px Arial, Helvetica, sans-serif;
+  overflow: hidden;
+  padding-left: 6px;
+  cursor: pointer;
+}
+.og-combo:hover { filter: brightness(1.1); }
+.og-combo-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 2px; }
+.og-combo-arrow { width: 16px; align-self: stretch; position: relative; background: rgba(0, 0, 0, 0.16); border-left: 1px solid rgba(0, 0, 0, 0.3); }
+.og-combo-arrow::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -25%);
+  border: 4px solid transparent;
+  border-top-color: currentColor;
+  border-bottom-width: 0;
+}
+
+/* TPaintBoxSelector cells */
+.og-cells { display: flex; border-radius: 3px; overflow: hidden; background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45); cursor: pointer; }
+.og-cells.col { flex-direction: column; }
+.og-cell {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: italic 600 11px Arial, Helvetica, sans-serif;
+  color: #8b9297;
+  border-right: 1px solid rgba(0, 0, 0, 0.3);
+}
+.og-cells.col .og-cell { border-right: none; border-bottom: 1px solid rgba(0, 0, 0, 0.3); font-style: normal; font-size: 10px; }
+.og-cell:last-child { border: none; }
+.og-cell.on { background: linear-gradient(180deg, #5b646b, #3f474d); color: #f1f3f4; }
+.og-cell:hover { color: #d6dadd; }
+
+/* check boxes: LED + caption (P_SmallBold) */
+.og-check { display: flex; align-items: center; cursor: pointer; font: 700 8px Arial, Helvetica, sans-serif; letter-spacing: 0.03em; color: #959ea6; white-space: nowrap; }
+.og-check.right { flex-direction: row-reverse; justify-content: flex-end; }
+.og-check.bottom { flex-direction: column-reverse; justify-content: flex-end; }
+.og-led { flex: none; width: 8px; height: 8px; margin: 0 4px 0 2px; border-radius: 2px; background: #2a3034; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.07); }
+.og-led.on { background: #ff9b3d; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 4px rgba(255, 155, 61, 0.7); }
+.og-check.center { justify-content: center; }
+.og-check.center .og-led { margin: 0; }
+
+/* glyph buttons (TQuickBtn FS_VectorTransparent) */
+.og-btn { display: flex; align-items: center; justify-content: center; color: #aab1b6; cursor: pointer; border-radius: 3px; }
+.og-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.og-btn.on { color: #ffb46b; }
+
+/* info memo */
+.og-memo {
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #9fa5a9;
+  font: 11px Arial, Helvetica, sans-serif;
+  line-height: 13px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  touch-action: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+  white-space: pre;
+}
+.og-memo::first-line { font-weight: 700; }
+.og-sunken { background: #272f34; border-radius: 3px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.05); pointer-events: none; }
+
+/* X / Y modulation pad */
+.og-xy { background: #33393e; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45); cursor: crosshair; overflow: hidden; }
+
+/* articulator editor frame (TMEnvEditor) */
+.og-envframe { position: absolute; background: #7b86a4; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55); pointer-events: none; }
+.og-envpanel { position: absolute; background: #2a2c42; pointer-events: none; }
+.og-envpanel span { position: absolute; font: 700 8px Arial, Helvetica, sans-serif; color: #b5b7cd; text-align: center; }
+.og-toolbar { position: absolute; background: #2a2c42; pointer-events: none; }
+.og-ptoggle { display: flex; align-items: center; gap: 3px; font: 700 8px Arial, Helvetica, sans-serif; color: #b5b7cd; padding-left: 3px; cursor: pointer; }
+.og-ptoggle-led { width: 7px; height: 7px; border-radius: 50%; background: #3b3e58; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5); }
+.og-ptoggle-led.on { background: #9fc0ff; box-shadow: 0 0 4px #9fc0ff; }
+.og-tool { display: flex; align-items: center; justify-content: center; color: #6a6d88; border-radius: 3px; cursor: pointer; }
+.og-tool:hover { color: #afb1c7; background: rgba(255, 255, 255, 0.05); }
+.og-tool.on { background: rgba(255, 255, 255, 0.06); }
+.og-scroller { overflow: hidden; }
+.og-envnote { display: flex; align-items: center; justify-content: center; text-align: center; font: 11px Arial, Helvetica, sans-serif; color: rgba(200, 210, 230, 0.55); background: #262b3c; }
+
+/* keyboard */
+.og-kb { overflow: hidden; }
+
+/* pad harmonics tool (a modal form over the editor) */
+.og-pad-back { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background: rgba(8, 10, 12, 0.5); outline: none; z-index: 50; touch-action: none; user-select: none; }
+.og-tool-dialog {
+  position: absolute;
+  background: #323a3f;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #c9d1d6;
+  overflow: hidden;
+}
+.og-tool-dialog > * { position: absolute; box-sizing: border-box; }
+.og-tool-title { left: 0; top: 0; width: 530px; height: 26px; line-height: 26px; padding-left: 10px; font: 700 12px Arial, Helvetica, sans-serif; background: #262c30; cursor: move; }
+.og-tool-close { left: 508px; top: 0; width: 22px; height: 26px; line-height: 24px; text-align: center; font: 700 14px Arial, Helvetica, sans-serif; color: #9aa4aa; cursor: pointer; }
+.og-tool-close:hover { background: #b0392f; color: #fff; }
+.og-tool-panel { background: #3c454b; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35); pointer-events: none; }
+.og-tool-ptitle { position: absolute; left: 0; top: 0; right: 0; height: 19px; line-height: 19px; padding-left: 8px; font: 700 11px Arial, Helvetica, sans-serif; color: #b9bfc3; background: rgba(0, 0, 0, 0.16); border-radius: 3px 3px 0 0; }
+.og-tool-note { font: 600 10px Arial, Helvetica, sans-serif; line-height: 15px; color: #e6b062; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.og-tool-btn { display: flex; align-items: center; justify-content: center; font: 600 11px Arial, Helvetica, sans-serif; color: #b9bfc3; background: linear-gradient(180deg, #3f484e, #31373b); border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5); cursor: pointer; user-select: none; }
+.og-tool-btn:hover { background: linear-gradient(180deg, #4d575e, #384046); color: #e6eaec; }
+.og-tool-btn.accept { color: #ffd9a8; }
+.og-tool-tabs { display: flex; background: #31373b; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5); overflow: hidden; }
+.og-tool-tab { flex: 1; display: flex; align-items: center; justify-content: center; font: italic 600 11px Tahoma, Arial, sans-serif; color: #9fa8ad; cursor: pointer; border-right: 1px solid rgba(0, 0, 0, 0.35); }
+.og-tool-tab:last-child { border-right: none; }
+.og-tool-tab:hover { color: #e2e6e8; }
+.og-tool-tab.on { color: var(--tab); background: linear-gradient(180deg, #2a3034, #3a4247); box-shadow: inset 0 -2px 0 var(--tab); }

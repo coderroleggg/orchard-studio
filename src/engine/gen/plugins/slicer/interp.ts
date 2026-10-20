@@ -74,6 +74,15 @@ export class SincKernel {
   private cB2 = -2;
   private base = 24;
   private speed = 1;
+  /**
+   * FL's libm calls of the kernel (cos in the setup, the sines of ippsSin_64f = Accelerate vvsin per frame):
+   * JS's Math by default, which differs from Apple's in the last bit for 4 - 10 % of the arguments.
+   * `sinNear`, when set, replaces `sin` for frames whose position lies within 1e-4 below the next
+   * frame, where the recurrence subtracts nearly equal values and that last bit decides the output.
+   */
+  cos: (x: number) => number = Math.cos;
+  sin: (x: number) => number = Math.sin;
+  sinNear: ((x: number) => number) | null = null;
 
   /** FL's SetQuality: the kernel size for `points`. */
   setPoints(points: number): void {
@@ -87,7 +96,7 @@ export class SincKernel {
     this.taps = t;
     if (t >= 7) {
       this.A = F_PI / t;
-      this.cA2 = 2 * Math.cos(this.A);
+      this.cA2 = 2 * this.cos(this.A);
     }
   }
 
@@ -96,7 +105,7 @@ export class SincKernel {
     const s = Math.abs(speed);
     if (!force && s === this.speed) return;
     this.speed = s;
-    if (s > 1) { this.B = F_PI / s; this.cB2 = 2 * Math.cos(this.B); } else { this.B = F_PI; this.cB2 = -2; }
+    if (s > 1) { this.B = F_PI / s; this.cB2 = 2 * this.cos(this.B); } else { this.B = F_PI; this.cB2 = -2; }
     let t = Math.trunc(Math.round(s) + 3) & ~3;
     t = Math.max(this.base, t);
     if (t > 512) t = 512;
@@ -110,8 +119,9 @@ export class SincKernel {
   run(L: Float32Array, R: Float32Array, st: number, len: number, k: number, f: number, out: Float32Array): void {
     if (f < 1e-25) f = 1e-25; // ippsThreshold_LT_64f_I
     const A = this.A, B = this.B;
-    const s0 = Math.sin(1.5707963267948966 - f * A), s1 = Math.sin(1.5707963267948966 - f * A - A);
-    const s2 = Math.sin(f * B), s3 = Math.sin(f * B + B);
+    const sin = f > 0.9999 && this.sinNear !== null ? this.sinNear : this.sin;
+    const s0 = sin(1.5707963267948966 - f * A), s1 = sin(1.5707963267948966 - f * A - A);
+    const s2 = sin(f * B), s3 = sin(f * B + B);
     const ra1 = this.cA2 * s0 - s1, ra2 = this.cA2 * ra1 - s0;
     const rb1 = this.cB2 * s2 - s3, rb2 = this.cB2 * rb1 - s2;
     // v16 = {sin((f-1)B), sin(fB), cos((f-1)A), cos(fA)}, v7 = {sin((f-2)B), sin((f+1)B), cos((f-2)A), cos((f+1)A)}

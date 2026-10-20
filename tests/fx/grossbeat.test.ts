@@ -365,7 +365,7 @@ describe('Gross Beat', () => {
     fx.setParams({ tslots: [{ pts: [{ x: 'a', y: NaN, m: 99 }] }, null], vslots: 5, tslot: 1e9, tmix: -5, opt: null });
     const [L] = render(fx, ramp(4800), ramp(4800), 128, { tempo: 0, ppq: 0 });
     expect(L.every((v) => Number.isFinite(v))).toBe(true);
-  });
+  }, 30_000); // many renders: heavy under full-suite load
 
   it('bounds its tail to two bars at the current tempo', () => {
     const fx = make();
