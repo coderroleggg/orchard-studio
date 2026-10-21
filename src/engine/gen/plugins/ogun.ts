@@ -12,6 +12,11 @@ export class OgunInstance implements GenInstance {
   readonly plug = new OgunPlug();
   private voices: OgunVoice[] = [];
   private maxPoly = 0;
+  /**
+   * Autogun: its Soundgoodizer runs on every chunk of the effects' output (interleaved L / R, `frames` frames) in place, after the
+   * halfband and before the sum is added to the channel (the end of FL's Gen_Render, Autogun_x64 0x6d9a0).
+   */
+  postFx: ((buf: Float32Array, frames: number) => void) | null = null;
 
   constructor(sampleRate: number, blockSize: number, _env?: GenEnv) {
     this.plug.setSampleRate(sampleRate);
@@ -90,6 +95,7 @@ export class OgunInstance implements GenInstance {
       const m = Math.min(n - done, pl.block);
       const got = fx.process(pl.mix, 2 * done * os, m * os, active, mode);
       const o = fx.out();
+      if (this.postFx) this.postFx(o, got);
       for (let i = 0; i < got; i++) {
         L[done + i] += o[2 * i];
         R[done + i] += o[2 * i + 1];

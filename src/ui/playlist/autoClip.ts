@@ -7,8 +7,7 @@ import { faderToDb, formatDb, formatPan, channelVolumeToDb } from '../../model/s
 import { freqHz, formatFreq } from '../../model/peq2';
 import { formatParam, fxParamDef } from '../../model/fx/registry';
 import { store } from '../../store';
-import { fxParamAt } from '../../model/fx/hosted';
-import { genParamKeyOf } from '../../model/gen/ids';
+import { channelParamAt, fxParamAt } from '../../model/fx/hosted';
 import { genParamDef } from '../../model/gen/registry';
 
 export const AUTO_TITLE_H = 13;
@@ -206,15 +205,14 @@ export function formatAutoValue(t: AutomationTarget, norm: number): string {
   if (t.scope === 'fx') {
     // effect parameter (also of a module hosted in Patcher): the plugin's own value text
     const at = fxParamAt(store.project, t.id, p);
-    const q = at ? fxParamDef(at.plugin, at.key) : undefined;
+    const q = at ? (at.gen ? genParamDef(at.plugin, at.key) : fxParamDef(at.plugin, at.key)) : undefined;
     if (q && at) return formatParam(q, raw, at.state);
   }
   if (t.scope === 'channel') {
-    // instrument parameter (plugin.params.<key>): the plugin's own value text
-    const key = genParamKeyOf(p);
-    const ch = key ? store.project.channels.find((c) => c.id === t.id) : undefined;
-    const q = key && ch?.plugin ? genParamDef(ch.plugin.id, key) : undefined;
-    if (q && ch?.plugin) return formatParam(q, raw, ch.plugin.params);
+    // instrument parameter (plugin.params.<key>, or a module hosted in its Patcher): the plugin's own value text
+    const at = channelParamAt(store.project, t.id, p);
+    const q = at ? (at.gen ? genParamDef(at.plugin, at.key) : fxParamDef(at.plugin, at.key)) : undefined;
+    if (q && at) return formatParam(q, raw, at.state);
   }
   if (t.scope === 'global' && p === 'tempo') return `${raw.toFixed(3)} BPM`;
   if (t.scope === 'global' && p === 'mainPitch') return `${raw >= 0 ? '+' : ''}${Math.round(raw * 1200)} cents`;

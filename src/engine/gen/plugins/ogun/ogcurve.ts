@@ -94,6 +94,9 @@ function mapConstant(c: OgCurve): number | null {
   return c.y[0];
 }
 
+/** Largest relative difference between a curve's length and the sum of its distances that counts as rounding noise (fixLength). */
+const FIX_TOLERANCE = 1e-9;
+
 export class OgCurve {
   type = TYPE_ENV;
   /** Point count and record fields (+0x0 x, +0x4 y, +0x8 tension, +0xc seg, +0xd arp, +0xe b2, +0xf kind, +0x10.. c0..c2, +0x1c offset weight). */
@@ -258,7 +261,12 @@ export class OgCurve {
       this.insert(this.len, this.y[this.high], 0);
     } else {
       const r = this.len / total;
-      if (r !== 1) for (let i = 0; i < this.n; i++) this.x[i] = this.x[i] * r;
+      // FL scales a stored curve once, when it reads it (the state reader, flstate.ts fixLength: the model keeps every curve in that form),
+      // so the distances here already sum to the length up to the rounding of their sum (a relative 2e-14 for a 27 000 point map).
+      // Scaling by that residual a second time would only move every distance by it, and that shifts the impulse EQ table of a large
+      // pad map by an ulp where a harmonic sits on a knot (about 8 % of Autogun's presets). A curve that is really off scale is
+      // still normalised.
+      if (Math.abs(r - 1) > FIX_TOLERANCE) for (let i = 0; i < this.n; i++) this.x[i] = this.x[i] * r;
     }
   }
 

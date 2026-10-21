@@ -55,6 +55,8 @@ class GenChannelVoice extends ChannelVoice {
  */
 const STOP_FADE_MS = 10;
 
+const NO_PORTS: readonly number[] = [];
+
 export class GenChannel extends InstrumentChannel<GenChannelVoice> {
   /** The instrument plugin id (FL generator). */
   readonly plugin: string;
@@ -321,6 +323,23 @@ export class GenChannel extends InstrumentChannel<GenChannelVoice> {
     const d = this.inst?.monitor?.() ?? null;
     if (d) d.__active = this.isActive();
     return d;
+  }
+
+  /** Display data of a module hosted in the plugin (Patcher). */
+  monitorHosted(moduleId: string): FxMonitor | null {
+    const d = this.inst?.monitorHosted?.(moduleId) ?? null;
+    if (d) d.__active = this.isActive();
+    return d;
+  }
+
+  /** MIDI Out ports the plugin listens on by itself (Patcher's "Port p" outputs). */
+  pluginPorts(): readonly number[] {
+    return this.inst?.midiPorts?.() ?? NO_PORTS;
+  }
+
+  /** A MIDI Out note on one of pluginPorts(): handed to the plugin as is. */
+  portNote(on: boolean, key: number, velocity: number, frame: number, port: number, channel: number): void {
+    this.inst?.portNote?.(on, key, velocity, frame, port, channel);
   }
 
   /** Controller outputs (Link to controller). */

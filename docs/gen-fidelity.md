@@ -11,12 +11,12 @@ The framework that hosts them is described in [gen-framework.md](gen-framework.m
 
 ## Scope
 
-Implemented: the 37 instruments below, the Layer channel and the three legacy
-64-bit dummies at the end (Wasp, Wasp XT, FL Slayer: hidden and silent, as in
-FL 2026). FL's other stock instruments are **not implemented** (the work was
-stopped at this set): Autogun, Dashboard, DirectWave, FL Keys, FL
-Studio Mobile (and its Rack), FLEX, Patcher as an instrument and the Audio
-Clip channel. They do not appear in the Channel Rack or Browser menus.
+Implemented: the 40 instruments below, the Layer channel and the four legacy
+64-bit dummies at the end (Wasp, Wasp XT, FL Slayer, Dashboard: hidden and
+silent, as in FL 2026). FL's other stock instruments are **not implemented**
+(the work was stopped at this set): DirectWave, FL Studio Mobile (and its
+Rack), FLEX and the Audio Clip channel. They do not appear in the Channel Rack
+or Browser menus.
 
 ## FL sound content
 
@@ -49,10 +49,11 @@ need that import.
 
 | Instrument | Match | Known gaps |
 |---|---|---|
+| Autogun | bit-exact in every sample for 19 pinned scenarios and 264 more presets (numbers 1 - 240 and 24 across the 32-bit range; dust, level, quality, 22 - 96 kHz, block sizes 1 - 1024, export mode, chords, automation); preset generator exact for 1 - 1000 and 24 large numbers; value texts and its Soundgoodizer exact | runs on Ogun's engine; original editor artwork (dust arc direction, keyboard range and About text guessed); FL states import only the preset number; Analyze timbre, MIDI learn |
 | BeepMap | bit-exact (every sample) in all 7 factory presets with their FL bitmaps, keys, velocities, block sizes 1 - 1000, 8 - 192 kHz, Log / Linear / Harmonics, Use Blue, Grainy, Loop, automation, glides, chords and bitmaps from 3 x 3 to 300 rows; importing FL's `.fst` files reproduces FL's renders bit for bit | a picture loaded from FL's BMP instead is resampled by an empirical model of Apple's image scaler (-56 dB); FL's sample blocks differ from ours at -132 dB re peak; polyphony limit fades with the channel's declick; INS tab not host-testable |
 | Harmor | engine and all effects (incl. the compressor) bit-exact against FL; default patch identical; 170 presets without FL content: median -84 dB, 152 within -60 dB | image / resynthesis playback, strum and a held-index mapping not ported; 155 presets need FL content; WavPack sources must be converted to WAV |
 | Morphine | bit-identical in all 429 comparisons (300 factory programs with FL content) | live playback uses a cheaper rounding mode (rare 1-ulp, exports stay exact); pitch-wheel source, MIDI learn, resynthesis not ported |
-| Ogun | engine bit-exact (every sample, with all effects) on 228 of 229 factory presets, qualities, export mode, 22 - 192 kHz, block sizes 1 - 1024, automation, glide, polyphony; value texts exact at every value of 81 parameters; random presets identical to FL's for the numbers 1 - 1000 | 141 presets need FL's analysed spectra (Import FL content...); Analyze timbre; LFO speed text; velocity law ~1e-8 (shared); Autogun not implemented |
+| Ogun | engine bit-exact (every sample, with all effects) on 228 of 229 factory presets, qualities, export mode, 22 - 192 kHz, block sizes 1 - 1024, automation, glide, polyphony; value texts exact at every value of 81 parameters; random presets identical to FL's for the numbers 1 - 1000 | 141 presets need FL's analysed spectra (Import FL content...); Analyze timbre; LFO speed text; velocity law ~1e-8 (shared) |
 | Plucked! | bit-exact in 56 cases, including FL's noise generator | channel samples not 16384 frames long (-58 dB); voice stealing above 16 voices |
 | Sakura | parameters, value texts, all 501 presets and the new-instance state exact; shared classes (wrapper, chorus, tape delay, reverb) function for function equal to the verified ports | sound not measurable (FL's licence check silences it in the test host): the DSP is ported from FL's code without any residual against FL; demo timer and licence layer not ported |
 
@@ -84,6 +85,7 @@ Both play your own audio (drop, file picker or Browser); FL's demo content is on
 | Instrument | Match | Known gaps |
 |---|---|---|
 | BooBass | bit-exact in 71 of 73 cases with FL content | substitute timbre without the import |
+| FL Keys | with FL content: bit-exact or within -105 dB across key groups, velocities, every parameter, the 9 presets, chords, loops, Rhodes velocity layers and sample rates; value texts exact; synthetic tables through FL's plugin bit-exact (78 renders); FL's flat Roto Organ away from 44.1 kHz reproduced (-73 .. -90 dB) | substitute sounds without the import; Grand Piano's Ogg decode (-110 .. -115 dB); voice limiting above the polyphony uses the channel's 10 ms fade; slide notes not compared |
 | Envelope Controller | 55 recorded FL scenarios and 22 presets match | random value; some editor tools |
 | Keyboard Controller | matches FL | none noted |
 | SoundFont Player | parameters, value texts and state exact; the Sobanth synth ported from FL's code and measured with self-made .sf2 files: 108 voice / envelope / LFO / modulator / filter / zone / link scenarios at -129 .. -297 dB (float32 rounding), 134 scenarios pinned in the tests; reverb bit-exact, chorus bit-exact .. -154 dB; 11 - 96 kHz hosts; FL's own STR_Ensemble.sf2 -142 dB, Default.sf2 -123 dB | Crunchy / HQ / Extreme HQ resampling not measurable with the host (same kernel builder as the measured Standard); strongly attenuating or swept filters away from 44.1 kHz differ at -79 .. -117 dB (float32 / libm order); short loops depend on the render block size; FL's soundfonts are not shipped (**Import FL content...** loads your own copy) |
@@ -91,10 +93,11 @@ Both play your own audio (drop, file picker or Browser); FL's demo content is on
 | Fruity Dance | behaviour and options per FL | original artwork |
 | Fruity Video Player | synced to the song, FL's options | plays your own video files |
 | Layer (channel) | children, random / crossfade / split as in FL | none noted |
+| Patcher (as an instrument) | not measurable (the test host renders Patcher silent); instruments inside it are bit-identical to the same instruments on their own channels (17 checked) | FL's 172 instrument presets not imported (they need the Surface tab and parameter links, missing as in the effect); Patcherize; latency compensation; INS tab of hosted legacy instruments |
 
 ## Legacy 64-bit dummies
 
-FL 2026 ships these three as 64-bit dummies: they accept notes, render silence
+FL 2026 ships these four as 64-bit dummies: they accept notes, render silence
 and show a "Dummy x64" window. They are hidden here (not in the menus), keep
 FL's parameter counts and ranges, and are silent like FL.
 
@@ -103,3 +106,4 @@ FL's parameter counts and ranges, and are silent like FL.
 | Wasp | silent in every render (all samples zero), as FL; 41 parameters as `flfxhost info` reports | automation list for the unnamed parameters not observed |
 | Wasp XT | silent in every render, as FL; 56 parameters | as Wasp |
 | FL Slayer | silent in every render, as FL; 29 parameters; no MIDI out | as Wasp |
+| Dashboard | silent in every render, as FL; 257 parameters; no controller output | FL's dummy keeps a loaded state, ours keeps none |

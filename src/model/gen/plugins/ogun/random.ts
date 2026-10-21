@@ -263,8 +263,13 @@ function thing(mt: FlMt): string {
   return fmt(a, [b]);
 }
 
-/** The generator's info text: a title and one to three lines of description, put together from the word lists. */
-function infoText(g: Gen): string {
+/**
+ * The generator's info text: a title and one to three lines of description, put together from the word lists. Autogun's
+ * generator (same function, FL's Autogun_x64.dylib 0x70170) makes no "Computer says no" draw, adds the last clause to a second line
+ * after a first one too, and shows the name it draws:
+ * title and author lines carry the memo's style codes (U+E427 / U+E4FF around the title, U+E5A0 / U+E5FF around the name).
+ */
+function infoText(g: Gen, autogun: boolean): string {
   const mt = g.mt;
   let t10 = '';
   const x21 = draw(mt, 4) > 0;
@@ -288,17 +293,18 @@ function infoText(g: Gen): string {
     t10 += fmt(pick(mt, 5), [a, b]);
     const t18 = pick(mt, 7);
     const c3 = draw(mt, 3);
-    if (!x21 && c3 > 0 && t10.length <= 90) t10 = t10 + ' ' + t18;
+    if ((autogun || !x21) && c3 > 0 && t10.length <= 90) t10 = t10 + ' ' + t18;
     t10 += draw(mt, 5) > 0 ? '.' : '!';
   }
   let t20 = t10;
-  pick(mt, 0); // a name (the draw is made, the text does not show it)
-  if (draw(mt, 30) === 0) t20 = 'Computer says no\r' + t20;
+  const name = pick(mt, 0); // a name (Ogun's text does not show it)
+  if (!autogun && draw(mt, 30) === 0) t20 = 'Computer says no\r' + t20;
   let title = draw(mt, 4) === 0 ? pick(mt, 4) : pick(mt, 8);
   if (draw(mt, 3) === 0) title = pick(mt, 9);
   else if (draw(mt, 4) === 0) title += cap(pick(mt, 9));
   else title = title + ' ' + pick(mt, 9);
   if (draw(mt, 4) === 0) title = title + ' ' + String(draw(mt, 6) + 2);
+  if (autogun) return '\ue427' + cap(title) + '\ue4ff\r\ue5a0' + name + '\ue5ff\r' + t20;
   return cap(title) + '\r' + t20;
 }
 
@@ -317,9 +323,10 @@ export function presetType(seed: number): number {
 
 /**
  * The patch FL's generator makes of preset number `seed` (the counter after the increment: "Generate random preset" asks for the
- * previous number + 1, "Enter random preset number" for number - 1). Returns the plugin state (types.ts).
+ * previous number + 1, "Enter random preset number" for number - 1). Returns the plugin state (types.ts). `autogun`: Autogun's variant of
+ * the same function (the info text only; it keeps the plugin's master level and magic dust, which the caller sets).
  */
-export function generateOgun(seed: number): FxParams {
+export function generateOgun(seed: number, autogun = false): FxParams {
   const mt = new FlMt(seed);
   const type = typeOf(mt.next());
   const tpl = (type === 2 ? OG_RND.tplC : OG_RND.tplA) as unknown as OgEntry;
@@ -397,7 +404,7 @@ export function generateOgun(seed: number): FxParams {
     div2 = draw(mt, 2) === 0 && d1 === 1 ? 2 : 1;
   }
   randomPad(g, 14, div2);
-  g.info = infoText(g);
+  g.info = infoText(g, autogun);
   return finish(g, st);
 }
 

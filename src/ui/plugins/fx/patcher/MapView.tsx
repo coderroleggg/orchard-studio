@@ -13,17 +13,19 @@
 // minimap, Shift+M cycles its size, 1-4 move it to a corner, F8 adds a plugin.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { defaultFxParams, fxDef } from '../../../../model/fx/registry';
+import { fxDef } from '../../../../model/fx/registry';
+import { genDef } from '../../../../model/gen/registry';
+import { channelOfSlot } from '../../../../model/gen/ids';
 import {
   IN, IN_NAME, LINK_MAX, OUT, OUT_NAME, addModule, autoArrange, connect, connectError, disconnect, disconnectNode,
-  inPortOut, inPorts, levelText, nodePorts, portName, removeModules, shownOuts, uniqueName,
+  inPortOut, inPorts, isGenModule, levelText, nodePorts, portName, removeModules, shownOuts, uniqueName,
   type LinkKind, type PatcherGraph, type PatcherLink, type PatcherModule,
 } from '../../../../model/fx/plugins/patcher';
 import { store } from '../../../../store';
 import { openMenu, type MenuItem } from '../../../widgets/ContextMenu';
 import { clearHint, flashHint, setHint } from '../../../hint';
-import { fxPickerItems } from '../../pluginMenu';
-import { Thumbnail, iconSize } from './Hosted';
+import { fxPickerItems, genPickerItems } from '../../pluginMenu';
+import { Thumbnail, iconSize, moduleDefaults } from './Hosted';
 import { FromIcon, ToIcon } from './icons';
 import { editGraph, viewGraph } from './sync';
 import {
@@ -163,13 +165,26 @@ export function MapView({ slotId, graph: g, trackName, width, height, activity, 
   };
 
   // ---------------------------------------------------------------- edits
-  const addAt = (plugin: string, mx: number, my: number) => {
-    const d = fxDef(plugin);
+  const addAt = (plugin: string, mx: number, my: number, gen = false) => {
+    const d = gen ? genDef(plugin) : fxDef(plugin);
     if (!d) return;
     editGraph(slotId, `Add ${d.name}`, (dg) => {
-      const m = addModule(dg, plugin, defaultFxParams(plugin), Math.max(70, mx), Math.max(60, my), uniqueName(dg, d.name));
+      const m = addModule(dg, plugin, moduleDefaults(plugin, gen), Math.max(70, mx), Math.max(60, my), uniqueName(dg, d.name), gen);
       setSel(new Set([m.id]));
     });
+  };
+
+  /**
+   * The plugin picker: effects by category, then (first, in a channel's Patcher)
+   * a Generators folder with the instruments by category. Patcher itself is not
+   * offered inside Patcher (a nested one would edit the outer graph).
+   */
+  const pickerItems = (pos: { x: number; y: number }): MenuItem[] => {
+    const fxItems = fxPickerItems((plugin) => addAt(plugin, pos.x, pos.y)).map((c) => ({
+      ...c, submenu: (c.submenu ?? []).filter((it) => it.label !== 'Patcher'),
+    })).filter((c) => (c.submenu ?? []).length > 0);
+    const genItems: MenuItem = { label: 'Generators', submenu: genPickerItems((plugin) => addAt(plugin, pos.x, pos.y, true)) };
+    return channelOfSlot(slotId) !== null ? [genItems, ...fxItems] : [...fxItems, genItems];
   };
 
   const deleteNodes = (ids: string[]) => {
@@ -228,9 +243,7 @@ export function MapView({ slotId, graph: g, trackName, width, height, activity, 
 
   const rootMenu = (cx: number, cy: number, at?: { x: number; y: number }) => {
     const pos = at ?? toMap(cxf, vw / 2, vh / 2);
-    const add = fxPickerItems((plugin) => addAt(plugin, pos.x, pos.y)).map((c) => ({
-      ...c, submenu: (c.submenu ?? []).filter((it) => it.label !== 'Patcher'),
-    })).filter((c) => (c.submenu ?? []).length > 0);
+    const add = pickerItems(pos);
     const chk = (label: string, key: keyof PatcherGraph['view'], shortcut?: string): MenuItem => ({
       label, shortcut, checked: !!view[key], onClick: () => setView({ [key]: !view[key] } as Partial<PatcherGraph['view']>),
     });
@@ -671,8 +684,7 @@ export function MapView({ slotId, graph: g, trackName, width, height, activity, 
 
   const rootMenuAddOnly = (cx: number, cy: number) => {
     const pos = toMap(cxf, mouse.current.x, mouse.current.y);
-    const add = fxPickerItems((plugin) => addAt(plugin, pos.x, pos.y)).map((c) => ({ ...c, submenu: (c.submenu ?? []).filter((it) => it.label !== 'Patcher') }));
-    openMenu(cx, cy, add, { minWidth: 150 });
+    openMenu(cx, cy, pickerItems(pos), { minWidth: 150 });
   };
 
   // a link deleted / a module removed: drop stale selection
@@ -897,7 +909,7 @@ const ModuleNode = memo(function ModuleNode({ slotId, m, trackName, x, y, zn, se
   slotId: string; m: PatcherModule; trackName: string; x: number; y: number; zn: number; selected: boolean; labels: boolean;
   latency: Activity | null; showLat: boolean; showPerf: boolean; inside: boolean;
 }) {
-  const ic = iconSize(m.plugin);
+  const ic = iconSize(m.plugin, isGenModule(m.id));
   const w = ic.w * zn, h = ic.h * zn;
   const lat = latency?.lat.get(m.id) ?? 0;
   const info: string[] = [];

@@ -129,7 +129,10 @@ to the engine automatically, src/audio/engineSamples.ts).
   `allNotesOff()` (panic), `monitor()` (editor data; the channel adds
   `__active`), `controls()` (controller outputs, see below),
   `takeStateChanges()` (state the plugin changed by itself, mirrored into the
-  project like effects').
+  project like effects'), and for hosts (Patcher): `monitorHosted(moduleId)`
+  (display data of a hosted module, watched as "ch:<channel id>#<module id>"),
+  `midiPorts()` / `portNote(on, key, velocity, frame, port, channel)` (MIDI Out
+  ports the plugin listens on by itself; the engine hands it their raw notes).
 - Levels and their scaling to FL's TVoiceParams live in one file,
   src/engine/gen/levels.ts (`setInitLevels`, `setFinalLevels`, `noteVolume`,
   `computeLRVol`, `pitchToHz`, `PITCH_C5`, `FL_C5_HZ`, `flFinalPitch`), as the
@@ -206,6 +209,16 @@ Controller engines (src/engine/gen/plugins/keyboardctrl.ts, envctrl.ts):
 - Test with tests/gen/ctlutil.ts: `driveCtl` (blocks with timed notes), `driveCtlChanges`
   (16-sample control steps, scripted parameter changes, every output's changes as
   [tick, value]) and recorded FL outputs as golden data (tests/gen/envctrl.golden.ts).
+
+## Patcher (an instrument that hosts plugins)
+
+Patcher (docs/research/gen/patcher.md) is an `'events'` instrument that runs the effect's Patcher
+engine: instruments and effects of its patch are modules of the channel's plugin state (`$graph`;
+generator modules have ids starting with `g`). A module is addressed as "ch:<channel id>#<module id>"
+(`isGenSlot` tells an instrument's slot id from an effect's: `channelOfSlot` is null for hosted ids,
+`hostedInChannel` splits them); its automation / link target is channel-scoped
+(`plugin.params.$graph.modules.<module>.params.<key>`). `HostedGen` (src/engine/gen/hosted.ts) plays
+an instrument inside the patch from note events the way a channel does.
 
 ## Layer channel (Misc > Layer)
 

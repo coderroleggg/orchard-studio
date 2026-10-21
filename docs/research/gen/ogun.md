@@ -125,4 +125,8 @@ reverb) and **Import FL content...**. Original drawing in FL's layout; no Image-
   the host passes (`setBlockSize`, the chunks of Gen_Render).
 - Not ported: **Analyze timbre...** (needs WAV loading and the FFT analysis 0x71ef0), the LFO speed knobs' mode-dependent text, the INS
   tab (envelopes / filter of the channel: Ogun handles its own), MIDI learn. **Autogun** (a sibling plugin of the same code that
-  generates its preset from a number) is not implemented.
+  generates its preset from a number) is implemented on top of this engine: docs/research/gen/autogun.md.
+- A map's distances are scaled to sum to its length once, when FL reads the curve (`flstate.ts fixLength`, which the model applies to
+  every curve it keeps). `OgCurve.fixLength` only normalises a curve that is really off scale (relative error above 1e-9): scaling a second
+  time by the residual of the sum (2e-14 for a 27 000 point map) moved the impulse EQ table of the large pad maps by an ulp where a
+  harmonic sits on a knot, and gave 1 - 5 ulp output differences in about 8 % of Autogun's presets.

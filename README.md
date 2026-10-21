@@ -1,7 +1,7 @@
 # Orchard Studio — an FL Studio–style DAW core (web)
 
 A pattern-based DAW modeled on FL Studio's workflow: Channel Rack with step
-sequencer, Piano Roll, Playlist, Mixer, the **Sampler**, **37 of FL Studio's
+sequencer, Piano Roll, Playlist, Mixer, the **Sampler**, **40 of FL Studio's
 stock instruments** (3x Osc, Sytrus, Harmor, Harmless, Morphine, FPC, Slicex,
 Drumaxx, Toxic Biohazard, PoiZone and more) and **FL Studio's stock mixer
 effects** (dynamics, delays and reverbs, distortion, filters and EQs,
@@ -113,20 +113,22 @@ analyzer data.
   keep a track running after its input stops.
 - **Patcher:** effect modules wired between *From FL Studio* and *To FL Studio*,
   with each module's own editor (as a live icon and in its own window), its
-  presets, display data and automation; VFX modules get notes.
+  presets, display data and automation; VFX modules get notes. As an
+  instrument in the Channel Rack it hosts instruments too, played by the
+  channel's notes.
 - **Link to controller:** the outputs of Peak Controller, Formula Controller,
   X-Y / X-Y-Z Controller and Control Surface drive any automatable control
   through FL's *Remote control settings* dialog, with FL's mapping formulas.
-- **Instruments:** 37 of FL Studio's stock instruments as Channel Rack
+- **Instruments:** 40 of FL Studio's stock instruments as Channel Rack
   channels (the "+" menu, a channel's Replace / Insert menu, Browser > Plugin
   database > Generators): Synth classic (3x Osc, DX10, GMS, Harmless, Kepler,
   Kepler Exo, MiniSynth, PoiZone, Sawer, SimSynth, Sytrus, Toxic Biohazard,
-  Transistor Bass), Synth special (BeepMap, Harmor, Morphine, Ogun, Plucked!, Sakura), Drum (BassDrum, Drumaxx,
+  Transistor Bass), Synth special (Autogun, BeepMap, Harmor, Morphine, Ogun, Plucked!, Sakura), Drum (BassDrum, Drumaxx,
   Drumpad, DrumSynth Live, Fruit Kick, FPC, Fruity Slicer, Fruity Slicer 2,
-  Slicex), Sampler (Granulizer, Wave Traveller), Misc (BooBass, SoundFont
-  Player, Voltage Controller), Controller (Envelope / Keyboard Controller),
+  Slicex), Sampler (Granulizer, Wave Traveller), Misc (BooBass, FL Keys,
+  SoundFont Player, Voltage Controller), Patcher (as an instrument), Controller (Envelope / Keyboard Controller),
   Visual (Fruity Dance, Video Player), plus the Layer channel and the legacy
-  Wasp, Wasp XT and FL Slayer (hidden and silent, as in FL 2026).
+  Wasp, Wasp XT, FL Slayer and Dashboard (hidden and silent, as in FL 2026).
   Each has FL's parameters, factory presets and editor, and FL's channel
   features apply to it (PLUGIN / INS / MISC tabs: arpeggiator, echo, porta,
   polyphony, envelopes). They were ported from FL's own plugin code and
@@ -184,13 +186,13 @@ analyzer data.
   zplane engine. Convolver ships no FL impulse files (it starts with a
   synthetic room; load your own impulses). ZGameEditor Visualizer has its own
   canvas effects instead of FL's shaders. VFX Script runs a Python subset.
-  Patcher has no Surface tab or parameter links between modules. Reeverb 2
+  Patcher has no Surface tab or parameter links between modules, and FL's 172
+  Patcher instrument presets are not imported. Reeverb 2
   matches FL's impulse response at 48 kHz but its wet sound differs at 44.1 kHz
   (-3 .. -8 dB residual).
 - Instruments (details per plugin in [docs/gen-fidelity.md](docs/gen-fidelity.md)):
-  FL's other stock instruments are not implemented: Autogun,
-  DirectWave, FL Keys, FL Studio Mobile (and its Rack), FLEX, Patcher as an
-  instrument, the Audio Clip channel and the legacy Dashboard.
+  FL's other stock instruments are not implemented: DirectWave, FL Studio
+  Mobile (and its Rack), FLEX and the Audio Clip channel.
   Of the implemented ones, Sawer, GMS and Sakura could not be compared with FL (its
   licence check silences them in the test host), Harmor plays image /
   resynthesis presets without their image layer, the Slicers' élastique

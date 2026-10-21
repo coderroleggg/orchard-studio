@@ -117,6 +117,11 @@ class SgBiquad {
     const w = this.freq * r.w;
     const s = sin(w), c = cos(w);
     const alpha = order === 0 ? s : order === 1 ? s * BW_ALPHA : s / (2 * fpcPower(0.5, 1 / (order + 1)));
+    this.setAlpha(alpha, c);
+  }
+
+  /** 0x1eeee0 for an explicit alpha (cosine c). */
+  setAlpha(alpha: number, c: number): void {
     const k = 1 / (1 + alpha);
     this.a1 = k * (-2 * c);
     this.a2 = k * (1 - alpha);
@@ -523,6 +528,9 @@ class SgBand {
   constructor(readonly idx: number) {}
 }
 
+/** The low cut's stage factors (0x3632d8): alpha = sin(w) * factor. */
+const LOWCUT_Q = [f32(0.19771184027194977), f32(0.61932772397995), f32(0.6768445372581482), f32(1.0793569087982178)];
+
 export class SgEngine {
   readonly sr: number;
   private readonly maxBlock: number;
@@ -533,6 +541,8 @@ export class SgEngine {
   private rBand: FlRate;
   private readonly rBase: FlRate;
   private first = 1;
+  /** low cut (parameter 6 >= 0, 0x68220): four high-pass stages before the bands; Soundgoodizer's own state (Autogun) uses it */
+  private lowCut: SgBiquad[] | null = null;
   private mix = 1;
   private mixOn = false;
   private counter = SILENT;
@@ -578,6 +588,7 @@ export class SgEngine {
     this.rBand = this.os > 1 ? new FlRate(this.sr * this.os) : this.rBase;
     this.mix = f32(f32(this.params[5]) * F001);
     this.mixOn = this.mix !== 1;
+    this.setLowCut(this.params[6]);
     for (const b of this.bands) {
       const base = 13 * b.idx;
       b.mode = this.params[base + 7];
@@ -611,6 +622,26 @@ export class SgEngine {
     return this.preset !== null;
   }
 
+  /** ProcessParam 6 (0x68220 + 0x24d770): the low cut, off for a negative value, else 5 * 2^(raw / 16384) Hz. */
+  setLowCut(raw: number): void {
+    this.params[6] = raw;
+    if (raw < 0) {
+      this.lowCut = null;
+      return;
+    }
+    const f = f32(5 * exp(raw * 6.103515625e-05 * LN2));
+    const d8 = f32(f) * 0.8 * this.rBase.w;
+    const s = sin(d8), c = cos(d8);
+    const st: SgBiquad[] = [];
+    for (let k = 0; k < 4; k++) {
+      const q = new SgBiquad();
+      q.type = 4;
+      q.setAlpha(s * LOWCUT_Q[k], c);
+      st.push(q);
+    }
+    this.lowCut = st;
+  }
+
   /** ProcessParam 5: LMH mix. */
   setMix(raw: number): void {
     this.params[5] = raw;
@@ -636,6 +667,7 @@ export class SgEngine {
     }
     this.upP.reset();
     this.downP.reset();
+    if (this.lowCut) for (const q of this.lowCut) q.st.fill(0);
     this.counter = SILENT;
     this.crossover();
     this.snap = true;
@@ -833,6 +865,7 @@ export class SgEngine {
       this.counter = SILENT;
       return;
     }
+    if (this.lowCut) for (const q of this.lowCut) q.run(bus, bus, n);
     const os = this.os;
     let N = n;
     let inBuf = bus;

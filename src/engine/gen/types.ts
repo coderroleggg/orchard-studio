@@ -154,6 +154,18 @@ export interface GenInstance {
   latency?: number;
   /** Editor display data, polled about 30 times a second while the editor is open. */
   monitor?(): FxMonitor | null;
+  /** Hosts (Patcher): display data of a hosted module, watched as "ch:<channel id>#<module id>". */
+  monitorHosted?(moduleId: string): FxMonitor | null;
+  /**
+   * MIDI Out ports the instrument listens on by itself (Patcher's From FL Studio "Port p"
+   * outputs), re-read after setParams. The engine hands the notes of those ports to portNote().
+   */
+  midiPorts?(): readonly number[];
+  /**
+   * A note of a MIDI Out channel on one of midiPorts(), `frame` samples into the next render()
+   * call (raw: the channel's note handling does not apply; velocity 0..128, channel 1..16).
+   */
+  portNote?(on: boolean, key: number, velocity: number, frame: number, port: number, channel: number): void;
   /**
    * Controller instruments (Envelope / Keyboard / Voltage Controller): current
    * values 0..1 of the internal controller outputs (def.outputs order), read

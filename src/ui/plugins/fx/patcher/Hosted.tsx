@@ -1,30 +1,40 @@
-// Hosted module editors: each module's own editor (src/ui/plugins/fx) rendered
-// with a context that points at the module inside the Patcher state - as a
-// live miniature in the module's node (FL's plugin icon) and in a floating
-// plugin window inside the Patcher editor (FL opens them detached).
+// Hosted module editors: each module's own editor (src/ui/plugins/fx for effects,
+// src/ui/plugins/gen for the generators of 'g' modules) rendered with a context
+// that points at the module inside the Patcher state - as a live miniature in
+// the module's node (FL's plugin icon) and in a floating plugin window inside the
+// Patcher editor (FL opens them detached).
 
 import { Component, memo, useMemo, useRef, type ReactNode } from 'react';
 import { defaultFxParams, fxDef, presetState } from '../../../../model/fx/registry';
-import type { PatcherModule } from '../../../../model/fx/plugins/patcher';
+import { defaultGenParams, genDef, genPresetState } from '../../../../model/gen/registry';
+import { isGenModule, type PatcherModule } from '../../../../model/fx/plugins/patcher';
 import { FxEditorContext } from '../../kit';
 import { editorFor } from '../../registry';
+import { genEditorFor } from '../../genRegistry';
 import { GenericEditor, genericSize } from '../../GenericEditor';
 import { openMenu, type MenuItem } from '../../../widgets/ContextMenu';
 import { clearHint, setHint } from '../../../hint';
 import { editGraph, focusModule, hostedCtx } from './sync';
 
+/** The module's plugin definition: an instrument's for a generator ('g' module), else an effect's. */
+export const moduleDef = (plugin: string, gen: boolean) => (gen ? genDef(plugin) : fxDef(plugin));
+/** The module's editor module. */
+export const moduleEditor = (plugin: string, gen: boolean) => (gen ? genEditorFor(plugin) : editorFor(plugin));
+/** A fresh state for the module's plugin. */
+export const moduleDefaults = (plugin: string, gen: boolean) => (gen ? defaultGenParams(plugin) : defaultFxParams(plugin));
+
 /** A module editor's size at 100% (FL's editor panel; generic editors grow with their parameters). */
-export function editorSize(plugin: string, params?: Record<string, unknown>): { w: number; h: number } {
-  const d = fxDef(plugin);
+export function editorSize(plugin: string, params?: Record<string, unknown>, gen = false): { w: number; h: number } {
+  const d = moduleDef(plugin, gen);
   if (!d) return { w: 260, h: 116 };
-  const mod = editorFor(plugin);
+  const mod = moduleEditor(plugin, gen);
   if (mod?.size && params) return mod.size(params);
   return mod ? { w: d.width, h: d.height } : genericSize(d.params.length);
 }
 
 /** Node icon size (map units): the editor scaled into FL's icon box. */
-export function iconSize(plugin: string): { w: number; h: number; s: number } {
-  const e = editorSize(plugin);
+export function iconSize(plugin: string, gen = false): { w: number; h: number; s: number } {
+  const e = editorSize(plugin, undefined, gen);
   const s = Math.min(0.45, 156 / e.w, 76 / e.h);
   return { w: Math.round(e.w * s), h: Math.round(e.h * s), s };
 }
@@ -42,7 +52,7 @@ class Boundary extends Component<{ children: ReactNode; name: string }, { failed
 /** The module's own editor bound to the module's state. */
 const ModuleEditor = memo(function ModuleEditor({ slotId, m, trackName, live }: { slotId: string; m: PatcherModule; trackName: string; live: boolean }) {
   const ctx = useMemo(() => hostedCtx(slotId, m, trackName, live), [slotId, m, trackName, live]);
-  const mod = editorFor(m.plugin);
+  const mod = moduleEditor(m.plugin, isGenModule(m.id));
   return (
     <FxEditorContext.Provider value={ctx}>
       <Boundary name={m.name}>{mod ? <mod.Editor /> : <GenericEditor />}</Boundary>
@@ -52,8 +62,9 @@ const ModuleEditor = memo(function ModuleEditor({ slotId, m, trackName, live }: 
 
 /** Live miniature of a module's editor (inert). */
 export const Thumbnail = memo(function Thumbnail({ slotId, m, trackName }: { slotId: string; m: PatcherModule; trackName: string }) {
-  const e = editorSize(m.plugin);
-  const ic = iconSize(m.plugin);
+  const gen = isGenModule(m.id);
+  const e = editorSize(m.plugin, undefined, gen);
+  const ic = iconSize(m.plugin, gen);
   return (
     <div className="ptc-thumb" style={{ width: ic.w, height: ic.h }}>
       <div style={{ width: e.w, height: e.h, transform: `scale(${ic.w / e.w}, ${ic.h / e.h})`, transformOrigin: '0 0' }}>
@@ -86,11 +97,12 @@ export function HostedWindow({ slotId, m, trackName, win, bounds, onMove, onClos
   onClose: () => void;
   onFront: () => void;
 }) {
-  const e = editorSize(m.plugin, m.params);
+  const gen = isGenModule(m.id);
+  const e = editorSize(m.plugin, m.params, gen);
   const s = Math.min(1, (bounds.w - 8) / e.w, (bounds.h - TITLE_H - 8) / e.h);
   const w = Math.round(e.w * s), h = Math.round(e.h * s);
   const x = Math.max(0, Math.min(bounds.w - w, win.x)), y = Math.max(0, Math.min(bounds.h - h - TITLE_H, win.y));
-  const def = fxDef(m.plugin);
+  const def = moduleDef(m.plugin, gen);
   const presets = def?.presets ?? [];
   const cur = typeof m.params.__preset === 'string' ? m.params.__preset : '';
   const curIdx = presets.findIndex((p) => p.name === cur);
@@ -98,7 +110,7 @@ export function HostedWindow({ slotId, m, trackName, win, bounds, onMove, onClos
   const loadPreset = (i: number) => {
     const pr = presets[(i + presets.length) % presets.length];
     if (!pr) return;
-    const fresh = presetState(m.plugin, pr, m.params);
+    const fresh = gen ? genPresetState(m.plugin, pr, m.params) : presetState(m.plugin, pr, m.params);
     editGraph(slotId, `Preset: ${pr.name}`, (g) => { const mm = g.modules[m.id]; if (mm) mm.params = fresh; });
   };
   const presetMenu = (cx: number, cy: number) => {
@@ -109,10 +121,10 @@ export function HostedWindow({ slotId, m, trackName, win, bounds, onMove, onClos
     const items: MenuItem[] = [];
     if (presets.length) items.push({ label: 'Presets', submenu: presets.map((p, i) => ({ label: p.name, checked: i === curIdx, radio: true, onClick: () => loadPreset(i) } as MenuItem)) }, { separator: true });
     // the module editor's own options menu, addressed to the hosted module
-    const own = editorFor(m.plugin)?.menu?.(`${slotId}#${m.id}`) ?? [];
+    const own = moduleEditor(m.plugin, gen)?.menu?.(`${slotId}#${m.id}`) ?? [];
     if (own.length) items.push(...own, { separator: true });
     items.push({
-      label: 'Reset to default', onClick: () => editGraph(slotId, `Reset ${m.name}`, (g) => { const mm = g.modules[m.id]; if (mm) mm.params = defaultFxParams(m.plugin); }),
+      label: 'Reset to default', onClick: () => editGraph(slotId, `Reset ${m.name}`, (g) => { const mm = g.modules[m.id]; if (mm) mm.params = moduleDefaults(m.plugin, gen); }),
     });
     openMenu(cx, cy, items);
   };

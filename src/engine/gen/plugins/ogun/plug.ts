@@ -58,6 +58,8 @@ export class OgunPlug {
   // ---- derived values (plug field offsets)
   /** +0x5cc master gain, +0x5d0 master pitch in cents. */
   master = 1;
+  /** Autogun's master level function (Autogun_x64 0x6af10) is Ogun's times 0.25. */
+  masterScale = 1;
   masterPitch = 0;
   /** +0x258 fullness, +0x25c pre-decay, +0x260 decay (-1: infinite), +0x264 release, +0x268 morph. */
   fFull = 0;
@@ -224,7 +226,7 @@ export class OgunPlug {
     const i2 = Array.isArray(raw.i2) ? (raw.i2 as number[]) : [];
     this.eqType = [0, 1, 2].map((k) => (typeof i2[k] === 'number' ? Math.min(2, Math.max(0, Math.round(i2[k]) | 0)) : k));
     const pi = this.pi;
-    this.master = masterGain(pi[0]);
+    this.master = this.masterScale === 1 ? masterGain(pi[0]) : f32(masterGain(pi[0]) * this.masterScale);
     this.masterPitch = pi[1] * 100 + pi[2];
     this.fFull = f32(f32(pi[8]) * f32(0.001));
     this.fPre = f32(f32(pi[5]) * f32(0.001));

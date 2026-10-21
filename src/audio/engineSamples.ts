@@ -36,8 +36,14 @@ export function slotSampleRefs(p: Project): Set<string> {
       else if (v && typeof v === 'object') scan(v, depth + 1);
     }
   };
-  for (const tr of p.mixer.tracks) for (const sl of tr.slots) if (sl) scan(sl.params, 0);
-  for (const c of p.channels) if (c.kind === 'plugin' && c.plugin) scan(c.plugin.params, 0);
+  // a plugin's state, and the state of every plugin hosted in it (Patcher modules: each scanned from its own root)
+  const state = (params: unknown) => {
+    scan(params, 0);
+    const mods = (params as { $graph?: { modules?: Record<string, { params?: unknown }> } } | undefined)?.$graph?.modules;
+    if (mods && typeof mods === 'object') for (const m of Object.values(mods)) scan(m?.params, 0);
+  };
+  for (const tr of p.mixer.tracks) for (const sl of tr.slots) if (sl) state(sl.params);
+  for (const c of p.channels) if (c.kind === 'plugin' && c.plugin) state(c.plugin.params);
   return want;
 }
 

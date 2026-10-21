@@ -8,7 +8,7 @@ import type { Draft } from 'immer';
 import { clampParam, formatParam, fxDef, fxParamDef } from '../../../model/fx/registry';
 import { genDef, genParamDef } from '../../../model/gen/registry';
 import { channelOfSlot } from '../../../model/gen/ids';
-import { pluginTargetOf } from '../../../model/fx/hosted';
+import { isGenSlot, pluginTargetOf } from '../../../model/fx/hosted';
 import type { FxParamDef } from '../../../model/fx/types';
 import type { ControlProps } from '../../widgets/control';
 
@@ -43,14 +43,14 @@ export interface BoundParam {
   set(v: number): void;
 }
 
-/** The edited plugin's definition (an instrument's for "ch:<channel id>" editors). */
+/** The edited plugin's definition (an instrument's for "ch:<channel id>" editors and generators hosted in Patcher). */
 export function pluginDefOf(c: FxEditorCtx) {
-  return channelOfSlot(c.slotId) !== null ? genDef(c.plugin) : fxDef(c.plugin);
+  return isGenSlot(c.slotId) ? genDef(c.plugin) : fxDef(c.plugin);
 }
 
 /** A parameter definition of the edited plugin. */
 export function paramDefOf(c: FxEditorCtx, key: string): FxParamDef | undefined {
-  return channelOfSlot(c.slotId) !== null ? genParamDef(c.plugin, key) : fxParamDef(c.plugin, key);
+  return isGenSlot(c.slotId) ? genParamDef(c.plugin, key) : fxParamDef(c.plugin, key);
 }
 
 /**

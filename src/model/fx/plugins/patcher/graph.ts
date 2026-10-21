@@ -4,16 +4,28 @@
 // latency compensation) and the editor (editing operations, cycle checks).
 //
 // Node ids: 'in' (From FL Studio), 'out' (To FL Studio) and module ids
-// ('m1', 'm2', ...). Links are 'audio' (stereo, yellow) or 'events' (notes,
-// green). An input port sums every link into it and an output port fans out.
+// ('m1', 'm2', ... for effects, 'g1', 'g2', ... for generators). Links are
+// 'audio' (stereo, yellow) or 'events' (notes, green). An input port sums
+// every link into it and an output port fans out.
 // From FL Studio's event outputs: 0 = "Notes" (the slot's MIDI input port)
 // and 1 + p = "Port p" (MIDI port p, activated from the node's Outputs menu,
 // as in FL: "Outputs > Events > Port 5"). Effects that take notes (Pitcher,
-// Vocodex, Gross Beat) have a "Notes" event input.
+// Vocodex, Gross Beat) have a "Notes" event input. Generators hosted in the map
+// have a "Notes" event input and a stereo audio output. The generator version of
+// Patcher (graph.gen, the channel's instrument) has no audio input: From FL
+// Studio offers only its event outputs (docs/research/gen/patcher.md).
 
 export const GRAPH_KEY = '$graph';
 export const IN = 'in';
 export const OUT = 'out';
+
+/** Module ids of generators start with this letter (effects' with 'm'): the kind is part of the id, so hosted ids tell the registry. */
+export const GEN_MODULE_PREFIX = 'g';
+
+/** The module id names a hosted generator (an instrument plugin), not an effect. */
+export function isGenModule(id: string): boolean {
+  return id.length > 1 && id.charCodeAt(0) === 103 /* g */;
+}
 
 /** FL's I/O node captions. */
 export const IN_NAME = 'From FL Studio';
@@ -81,6 +93,8 @@ export interface PatcherView {
 
 export interface PatcherGraph {
   version: 1;
+  /** The instrument version of Patcher (a channel's plugin): From FL Studio has no audio output. */
+  gen?: boolean;
   modules: Record<string, PatcherModule>;
   /** Module ids in creation / z order (processing tie-break). */
   order: string[];
@@ -107,14 +121,22 @@ export function defaultView(): PatcherView {
   };
 }
 
-/** A new Patcher: From FL Studio linked straight to To FL Studio (FL's Default preset). */
-export function defaultGraph(): PatcherGraph {
+/**
+ * A new Patcher (FL's Default preset): the effect has From FL Studio linked
+ * straight to To FL Studio; the instrument (`gen`) has nothing to link - no
+ * audio input, its "Notes" output on From FL Studio, "Audio output" on To FL
+ * Studio (decoded from Plugin presets/Generators/Patcher/Default.fst; its nodes
+ * sit 7 FL units lower than the effect's).
+ */
+export function defaultGraph(gen = false): PatcherGraph {
+  const y = gen ? 251 : 240;
   return {
     version: 1,
+    ...(gen ? { gen: true } : {}),
     modules: {},
     order: [],
-    links: [{ id: 'l1', kind: 'audio', from: IN, fromPort: 0, to: OUT, toPort: 0, level: 1, mute: false }],
-    io: { in: { x: 64, y: 240 }, out: { x: 920, y: 240 } },
+    links: gen ? [] : [{ id: 'l1', kind: 'audio', from: IN, fromPort: 0, to: OUT, toPort: 0, level: 1, mute: false }],
+    io: { in: { x: 64, y }, out: { x: 920, y } },
     focus: null,
     next: 2,
     view: defaultView(),
@@ -162,16 +184,20 @@ export interface NodePorts {
   eventsOut: number;
 }
 
-export function pluginPorts(plugin: string): NodePorts {
+/** A hosted generator takes notes and gives audio. */
+const GEN_PORTS: NodePorts = { audioIn: 0, audioOut: 1, eventsIn: 1, eventsOut: 0 };
+
+export function pluginPorts(plugin: string, gen = false): NodePorts {
+  if (gen) return GEN_PORTS;
   if (isEventModule(plugin)) return { audioIn: 0, audioOut: 0, eventsIn: 1, eventsOut: EVENT_OUTS[plugin] };
   return { audioIn: 1, audioOut: 1, eventsIn: takesNotes(plugin) ? 1 : 0, eventsOut: 0 };
 }
 
 export function nodePorts(g: PatcherGraph, id: string): NodePorts | null {
-  if (id === IN) return { audioIn: 0, audioOut: 1, eventsIn: 0, eventsOut: IN_EVENT_OUTS };
+  if (id === IN) return { audioIn: 0, audioOut: g.gen ? 0 : 1, eventsIn: 0, eventsOut: IN_EVENT_OUTS };
   if (id === OUT) return { audioIn: 1, audioOut: 0, eventsIn: 0, eventsOut: 0 };
   const m = g.modules[id];
-  return m ? pluginPorts(m.plugin) : null;
+  return m ? pluginPorts(m.plugin, isGenModule(id)) : null;
 }
 
 export function defaultOuts(plugin: string): number[] | undefined {
@@ -262,10 +288,11 @@ export function disconnectNode(g: PatcherGraph, id: string): void {
   for (let i = g.links.length - 1; i >= 0; i--) if (g.links[i].from === id || g.links[i].to === id) g.links.splice(i, 1);
 }
 
-export function addModule(g: PatcherGraph, plugin: string, params: Record<string, unknown>, x: number, y: number, name: string): PatcherModule {
-  const id = `m${g.next++}`;
+/** Add a module (`gen`: a generator, hosted with a 'g' id; else an effect). */
+export function addModule(g: PatcherGraph, plugin: string, params: Record<string, unknown>, x: number, y: number, name: string, gen = false): PatcherModule {
+  const id = `${gen ? GEN_MODULE_PREFIX : 'm'}${g.next++}`;
   const m: PatcherModule = { id, plugin, name, x, y, params };
-  const outs = defaultOuts(plugin);
+  const outs = gen ? undefined : defaultOuts(plugin);
   if (outs) m.outs = outs;
   g.modules[id] = m;
   g.order.push(id);
@@ -423,9 +450,12 @@ function num(v: unknown, d: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : d;
 }
 
-/** Repair a stored graph (missing fields, dangling links, duplicate ids). */
-export function normalizeGraph(raw: unknown): PatcherGraph {
-  const d = defaultGraph();
+/**
+ * Repair a stored graph (missing fields, dangling links, duplicate ids).
+ * `gen`: the graph belongs to an instrument (a channel's Patcher).
+ */
+export function normalizeGraph(raw: unknown, gen = false): PatcherGraph {
+  const d = defaultGraph(gen);
   if (!raw || typeof raw !== 'object') return d;
   const r = raw as Partial<PatcherGraph>;
   const modules: Record<string, PatcherModule> = {};
@@ -437,7 +467,7 @@ export function normalizeGraph(raw: unknown): PatcherGraph {
       id, plugin: m.plugin, name: typeof m.name === 'string' ? m.name : m.plugin,
       x: num(m.x, 300), y: num(m.y, 240),
       params: m.params && typeof m.params === 'object' ? m.params : {},
-      ...(Array.isArray(m.outs) ? { outs: m.outs.filter((k) => typeof k === 'number') } : isEventModule(m.plugin) ? { outs: defaultOuts(m.plugin) } : {}),
+      ...(Array.isArray(m.outs) ? { outs: m.outs.filter((k) => typeof k === 'number') } : !isGenModule(id) && isEventModule(m.plugin) ? { outs: defaultOuts(m.plugin) } : {}),
       ...(m.threaded !== undefined ? { threaded: !!m.threaded } : {}),
       ...(m.compatLevels !== undefined ? { compatLevels: !!m.compatLevels } : {}),
     };
@@ -446,7 +476,7 @@ export function normalizeGraph(raw: unknown): PatcherGraph {
   const order = (Array.isArray(r.order) ? r.order : []).filter((id): id is string => typeof id === 'string' && !!modules[id]);
   for (const id of Object.keys(modules)) if (!order.includes(id)) order.push(id);
   const g: PatcherGraph = {
-    version: 1, modules, order, links: [],
+    version: 1, ...(gen || r.gen === true ? { gen: true } : {}), modules, order, links: [],
     io: {
       in: {
         x: num(r.io?.in?.x, d.io.in.x), y: num(r.io?.in?.y, d.io.in.y),

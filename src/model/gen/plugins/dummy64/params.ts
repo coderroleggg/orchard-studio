@@ -1,4 +1,4 @@
-// Parameters of FL 2026's 64-bit dummies (Wasp, Wasp XT, FL Slayer; docs/research/gen/wasp.md).
+// Parameters of FL 2026's 64-bit dummies (Wasp, Wasp XT, FL Slayer, Dashboard; docs/research/gen/wasp.md).
 // flfxhost info reads every parameter with no name and no value text, on the range
 // 0..1073741824 with default 0, and reads back 0 whatever was set. That range is the host's
 // identity translation of the normalized range (the dummies define none): the dummies have

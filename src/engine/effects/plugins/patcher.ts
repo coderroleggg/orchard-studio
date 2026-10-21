@@ -18,47 +18,67 @@
 //   modules: effects that take notes get noteOn / noteOff, VFX modules play
 //   them live through their note processing (processNotes) and send the
 //   resulting notes on along their voice outputs (LiveVfx below).
+// - Generators: modules with a 'g' id (isGenModule) are instrument plugins,
+//   hosted by HostedGen (src/engine/gen/hosted.ts): they take the notes of their
+//   event links as voices and render into the module's audio output. The
+//   instrument version of Patcher (src/engine/gen/plugins/patcher.ts) wraps
+//   this same class: the channel's notes enter as From FL Studio's "Notes"
+//   output (with the channel note's live levels, see NoteSrcPool), and the
+//   graph's audio output is the instrument's output.
 
 import { createEffect } from '../index';
 import type { EffectInstance, EffectModule, FxContext, FxEnv, FxMonitor } from '../types';
 import {
-  GRAPH_KEY, IN, LINK_MAX, OUT, compensate, inPortOut, inPorts, isEventModule, pathTail, processPlan,
+  GRAPH_KEY, IN, LINK_MAX, OUT, compensate, inPortOut, inPorts, isEventModule, isGenModule, pathTail, processPlan,
   type PatcherGraph, type PatcherLink, type ProcessPlan,
 } from '../../../model/fx/plugins/patcher';
 import { clampKey, seeded, type VfxContext, type VfxNote } from '../../../model/fx/plugins/vfx/notes';
+import { HostedGen, NoteSrcPool } from '../../gen/hosted';
+import type { GenNote } from '../../gen/types';
+import type { InterpMode } from '../../../model/sampler';
+
+/** Notes the instrument version feeds in (the channel's), as opposed to MIDI Out ports (>= 0). */
+const CHANNEL_PORT = -2;
 
 // ------------------------------------------------------------------ notes
 
-/** Note events of one block on one port (sample offsets, time order). Grows, never shrinks. */
-class EvList {
+/**
+ * Note events of one block on one port (sample offsets, time order). Grows,
+ * never shrinks. `s` is the note's source (NoteSrcPool index of the channel note
+ * the event comes from, -1 for MIDI port notes): hosted generators follow its
+ * live levels.
+ */
+export class EvList {
   f = new Int32Array(32);
   k = new Int16Array(32);
   v = new Float32Array(32);
   o = new Uint8Array(32);
   c = new Uint8Array(32);
+  s = new Int32Array(32);
   n = 0;
   clear(): void { this.n = 0; }
-  push(frame: number, key: number, vel: number, on: boolean, chan: number): void {
+  push(frame: number, key: number, vel: number, on: boolean, chan: number, src = -1): void {
     if (this.n === this.f.length) {
       const cap = this.f.length * 2;
       const grow = <T extends Int32Array | Int16Array | Float32Array | Uint8Array>(a: T, b: T) => { b.set(a); return b; };
       this.f = grow(this.f, new Int32Array(cap)); this.k = grow(this.k, new Int16Array(cap));
       this.v = grow(this.v, new Float32Array(cap)); this.o = grow(this.o, new Uint8Array(cap)); this.c = grow(this.c, new Uint8Array(cap));
+      this.s = grow(this.s, new Int32Array(cap));
     }
     const i = this.n++;
-    this.f[i] = frame; this.k[i] = key; this.v[i] = vel; this.o[i] = on ? 1 : 0; this.c[i] = chan;
+    this.f[i] = frame; this.k[i] = key; this.v[i] = vel; this.o[i] = on ? 1 : 0; this.c[i] = chan; this.s[i] = src;
   }
-  append(src: EvList): void { for (let i = 0; i < src.n; i++) this.push(src.f[i], src.k[i], src.v[i], src.o[i] === 1, src.c[i]); }
+  append(src: EvList): void { for (let i = 0; i < src.n; i++) this.push(src.f[i], src.k[i], src.v[i], src.o[i] === 1, src.c[i], src.s[i]); }
   /** Stable sort by frame, note offs first at a frame (merged inputs). */
   sort(): void {
     for (let i = 1; i < this.n; i++) {
-      const f = this.f[i], k = this.k[i], v = this.v[i], o = this.o[i], c = this.c[i];
+      const f = this.f[i], k = this.k[i], v = this.v[i], o = this.o[i], c = this.c[i], s = this.s[i];
       let j = i - 1;
       while (j >= 0 && (this.f[j] > f || (this.f[j] === f && this.o[j] > o))) {
-        this.f[j + 1] = this.f[j]; this.k[j + 1] = this.k[j]; this.v[j + 1] = this.v[j]; this.o[j + 1] = this.o[j]; this.c[j + 1] = this.c[j];
+        this.f[j + 1] = this.f[j]; this.k[j + 1] = this.k[j]; this.v[j + 1] = this.v[j]; this.o[j + 1] = this.o[j]; this.c[j + 1] = this.c[j]; this.s[j + 1] = this.s[j];
         j--;
       }
-      this.f[j + 1] = f; this.k[j + 1] = k; this.v[j + 1] = v; this.o[j + 1] = o; this.c[j + 1] = c;
+      this.f[j + 1] = f; this.k[j + 1] = k; this.v[j + 1] = v; this.o[j + 1] = o; this.c[j + 1] = c; this.s[j + 1] = s;
     }
   }
 }
@@ -66,8 +86,8 @@ class EvList {
 /** A VFX module's note processing (every VFX engine instance has it). */
 type VfxFx = EffectInstance & { notes?(n: VfxNote[], ctx?: VfxContext): VfxNote[] };
 
-interface LiveIn { id: number; key: number; vel: number; chan: number; start: number; startTick: number; end: number; endTick: number }
-interface LiveOut { inId: number; port: number; key: number; vel: number; chan: number; start: number; end: number; started: boolean }
+interface LiveIn { id: number; key: number; vel: number; chan: number; src: number; start: number; startTick: number; end: number; endTick: number }
+interface LiveOut { inId: number; port: number; key: number; vel: number; chan: number; src: number; start: number; end: number; started: boolean }
 
 /** Ticks a live note is given before its release is known (per-note VFX); outputs reaching it last until the release. */
 const LIVE_BARS = 4;
@@ -101,12 +121,19 @@ class LiveVfx {
 
   reset(): void { this.ins.length = 0; this.outs.length = 0; this.rerunAt = Infinity; this.state = {}; }
 
+  /** Notes are held or output notes are still due (the patch must keep running); released notes kept for the next batch do not count. */
+  busy(): boolean {
+    if (this.outs.length > 0) return true;
+    for (const x of this.ins) if (x.end === Infinity) return true;
+    return false;
+  }
+
   run(fx: VfxFx, ev: EvList, clock: number, n: number, baseTick: number, spt: number, ppq: number, tempo: number, out: EvList[]): void {
     for (const o of out) o.clear();
     if (!fx.notes) return;
     for (let i = 0; i < ev.n; i++) {
       const f = ev.f[i], T = clock + f, tick = baseTick + f / spt;
-      if (ev.o[i]) this.noteOn(fx, ev.k[i], ev.v[i], ev.c[i], T, tick, spt, ppq, tempo);
+      if (ev.o[i]) this.noteOn(fx, ev.k[i], ev.v[i], ev.c[i], ev.s[i], T, tick, spt, ppq, tempo);
       else this.noteOff(fx, ev.k[i], T, tick, spt, ppq, tempo);
     }
     if (this.batch && this.rerunAt < clock + n) {
@@ -116,12 +143,12 @@ class LiveVfx {
     this.emit(clock, n, out);
   }
 
-  private noteOn(fx: VfxFx, key: number, vel: number, chan: number, T: number, tick: number, spt: number, ppq: number, tempo: number): void {
+  private noteOn(fx: VfxFx, key: number, vel: number, chan: number, src: number, T: number, tick: number, spt: number, ppq: number, tempo: number): void {
     // a key pressed again ends its previous note first
     if (this.ins.some((x) => x.key === key && x.end === Infinity)) this.noteOff(fx, key, T, tick, spt, ppq, tempo);
     const id = ++this.nid;
     const color = Math.max(0, Math.min(15, chan - 1));
-    this.ins.push({ id, key, vel, chan, start: T, startTick: tick, end: Infinity, endTick: Infinity });
+    this.ins.push({ id, key, vel, chan, src, start: T, startTick: tick, end: Infinity, endTick: Infinity });
     if (this.batch) { this.rerun(fx, T, tick, spt, ppq, tempo); return; }
     const len = this.bars * 4 * ppq;
     const note: VfxNote = { key, pos: 0, len, vel, rel: 64, pan: 64, fine: 120, modX: 128, modY: 128, color };
@@ -133,7 +160,7 @@ class LiveVfx {
       const start = T + Math.max(0, o.pos) * spt;
       const open = o.pos + o.len >= len - 1;
       this.outs.push({
-        inId: id, port: Math.max(0, Math.min(15, Math.round(o.port ?? 0))), key: clampKey(o.key), vel: Math.min(128, o.vel), chan,
+        inId: id, port: Math.max(0, Math.min(15, Math.round(o.port ?? 0))), key: clampKey(o.key), vel: Math.min(128, o.vel), chan, src,
         start: Math.round(start), end: open ? Infinity : Math.round(start + Math.max(1, o.len) * spt), started: false,
       });
     }
@@ -164,6 +191,9 @@ class LiveVfx {
     }));
     let res: VfxNote[] = [];
     if (notes.length) { try { res = fx.notes!(notes, { ppq, tempo, random: seeded(12345) }); } catch { res = []; } }
+    // the outputs of a chord follow the levels of its latest held note
+    let src = -1;
+    for (const x of this.ins) if (x.end === Infinity) src = x.src;
     const fresh = res.filter((o) => o.vel > 0 && Number.isFinite(o.pos) && Number.isFinite(o.len)).map((o) => {
       const start = Math.round(T + (o.pos - tick) * spt);
       return { port: Math.max(0, Math.min(15, Math.round(o.port ?? 0))), key: clampKey(o.key), vel: Math.min(128, o.vel), start, end: Math.round(start + Math.max(1, o.len) * spt), used: false };
@@ -176,7 +206,7 @@ class LiveVfx {
       if (m) { m.used = true; o.end = Math.max(T, m.end); } else if (o.end > T) o.end = T;
       keep.push(o);
     }
-    for (const q of fresh) if (!q.used && q.start >= T) keep.push({ inId: 0, port: q.port, key: q.key, vel: q.vel, chan: 1, start: q.start, end: q.end, started: false });
+    for (const q of fresh) if (!q.used && q.start >= T) keep.push({ inId: 0, port: q.port, key: q.key, vel: q.vel, chan: 1, src, start: q.start, end: q.end, started: false });
     this.outs = keep;
     this.rerunAt = held ? T + (BATCH_BARS * bar * spt) / 2 : Infinity;
   }
@@ -191,10 +221,10 @@ class LiveVfx {
       if (!o.started && o.start < end) {
         if (o.end <= clock) continue; // missed entirely
         o.started = true;
-        list?.push(Math.max(0, o.start - clock), o.key, o.vel, true, o.chan);
+        list?.push(Math.max(0, o.start - clock), o.key, o.vel, true, o.chan, o.src);
       }
       if (o.started && o.end < end) {
-        list?.push(Math.max(0, Math.min(n - 1, o.end - clock)), o.key, 0, false, o.chan);
+        list?.push(Math.max(0, Math.min(n - 1, o.end - clock)), o.key, 0, false, o.chan, o.src);
         continue;
       }
       this.outs[w++] = o;
@@ -220,6 +250,8 @@ interface ModNode {
   /** VFX modules: live note processing and this block's output events per voice port. */
   vfx: LiveVfx | null;
   evOut: EvList[] | null;
+  /** Generator modules: the hosted instrument (the same object as `fx`). */
+  gen: HostedGen | null;
 }
 
 interface Edge {
@@ -237,7 +269,7 @@ interface LinkSig { id: string; kind: string; from: string; fromPort: number; to
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object';
 
-class Patcher implements EffectInstance {
+export class Patcher implements EffectInstance {
   private readonly sr: number;
   private readonly bs: number;
   private readonly env: FxEnv;
@@ -268,11 +300,17 @@ class Patcher implements EffectInstance {
   private inO: boolean[] = [];
   private inC: number[] = [];
   private inP: number[] = [];
+  private inS: number[] = [];
   /** From FL Studio's event outputs (0 = Notes, 1 + p = Port p) for this block. */
   private inOut = new Map<number, EvList>();
   private clock = 0;
   private freeTick = 0;
   private anyNotes = false;
+  /** Channel notes' live levels for the generators (the instrument version). */
+  readonly srcs = new NoteSrcPool();
+  /** The channel's max polyphony and the project's resampling quality, forwarded to hosted generators. */
+  private maxPoly = 0;
+  private interp: InterpMode | null = null;
 
   constructor(sampleRate: number, blockSize: number, env: FxEnv) {
     this.sr = sampleRate;
@@ -306,12 +344,19 @@ class Patcher implements EffectInstance {
       const m = g.modules[id];
       let node = this.nodes.get(id);
       if (!node || node.plugin !== m.plugin) {
-        const vfx = isEventModule(m.plugin);
+        const isGen = isGenModule(id);
+        const vfx = !isGen && isEventModule(m.plugin);
+        const gen = isGen ? new HostedGen(m.plugin, this.sr, this.bs, this.env, this.srcs) : null;
+        if (gen) {
+          if (this.maxPoly) gen.setMaxPoly(this.maxPoly);
+          if (this.interp) gen.setInterpolation(this.interp);
+        }
         node = {
-          id, plugin: m.plugin, fx: createEffect(m.plugin, this.sr, this.bs, this.env),
+          id, plugin: m.plugin, fx: gen ?? createEffect(m.plugin, this.sr, this.bs, this.env),
           L: new Float32Array(this.bs), R: new Float32Array(this.bs), inputs: [], lat: 0, peak: 0,
           evLinks: [], evIn: new EvList(), vfx: vfx ? new LiveVfx(m.plugin === 'vfxsequencer', m.plugin === 'vfxscript' ? 2 : LIVE_BARS) : null,
           evOut: vfx ? Array.from({ length: 16 }, () => new EvList()) : null,
+          gen,
         };
         this.nodes.set(id, node);
         structural = true;
@@ -455,16 +500,60 @@ class Patcher implements EffectInstance {
   midiPorts(): readonly number[] { return this.ports; }
 
   noteOn(key: number, velocity: number, frameOffset: number, port: number, channel: number): void {
-    this.queueNote(key, velocity, frameOffset, true, channel, port);
+    this.queueNote(key, velocity, frameOffset, true, channel, port, -1);
   }
 
   noteOff(key: number, frameOffset: number, port: number, channel: number): void {
-    this.queueNote(key, 0, frameOffset, false, channel, port);
+    this.queueNote(key, 0, frameOffset, false, channel, port, -1);
   }
 
   allNotesOff(): void {
-    this.inF.length = this.inK.length = this.inV.length = this.inO.length = this.inC.length = this.inP.length = 0;
+    this.inF.length = this.inK.length = this.inV.length = this.inO.length = this.inC.length = this.inP.length = this.inS.length = 0;
     for (const m of this.nodes.values()) { m.fx.allNotesOff?.(); m.vfx?.reset(); }
+    this.srcs.releaseAll();
+  }
+
+  // ------------------------------------------- the instrument version: channel notes
+  /** A channel note starts (From FL Studio's "Notes"), `frame` samples into the next process() call. */
+  channelNoteOn(note: GenNote, frame: number): void {
+    this.queueNote(note.key, note.velocity, frame, true, note.color + 1, CHANNEL_PORT, this.srcs.start(note));
+  }
+
+  /** The channel note's release; its levels freeze at their last values. (A note this patch no longer tracks, e.g. after a panic, is ignored.) */
+  channelNoteOff(note: GenNote, frame: number): void {
+    const src = this.srcs.find(note.id);
+    if (src < 0) return;
+    this.queueNote(note.key, 0, frame, false, note.color + 1, CHANNEL_PORT, src);
+    this.srcs.release(src);
+  }
+
+  /** The channel stops a note at once (polyphony limit, panic): hosted voices fade out and end. */
+  channelNoteKill(note: GenNote): void {
+    const src = this.srcs.find(note.id);
+    if (src < 0) return;
+    for (const m of this.nodes.values()) m.gen?.killSrc(src);
+    // a note-on queued for this block ends with the block; downstream VFX modules get the note off
+    this.queueNote(note.key, 0, 0x7fffffff, false, note.color + 1, CHANNEL_PORT, src);
+    this.srcs.release(src);
+  }
+
+  /** Anything is still sounding or due: hosted voices, VFX output notes, queued notes. */
+  busy(): boolean {
+    if (this.inF.length) return true;
+    for (const m of this.nodes.values()) if (m.gen?.busy() || m.vfx?.busy()) return true;
+    return false;
+  }
+
+  /** The channel's max polyphony (FL's FPE_MaxPoly), for the hosted generators that limit their own voices. */
+  setMaxPoly(n: number): void {
+    this.maxPoly = n;
+    for (const m of this.nodes.values()) m.gen?.setMaxPoly(n);
+  }
+
+  /** The project's resampling quality, for hosted generators that resample by themselves. */
+  setInterpolation(mode: InterpMode): void {
+    this.interp = mode;
+    for (const m of this.nodes.values()) m.gen?.setInterpolation(mode);
   }
 
   /** State the hosted modules changed by themselves, at their paths inside the graph. */
@@ -479,9 +568,10 @@ class Patcher implements EffectInstance {
     return out;
   }
 
-  private queueNote(key: number, vel: number, frame: number, on: boolean, chan: number, port: number): void {
-    if (key < 0 || key > 127 || this.inF.length >= 1024) return;
-    this.inF.push(Math.max(0, frame | 0)); this.inK.push(key); this.inV.push(vel); this.inO.push(on); this.inC.push(chan || 1); this.inP.push(port);
+  private queueNote(key: number, vel: number, frame: number, on: boolean, chan: number, port: number, src: number): void {
+    // MIDI notes are 0..127; the channel's notes reach FL's top keys (131)
+    if (key < 0 || key > (port === CHANNEL_PORT ? 131 : 127) || this.inF.length >= 1024) return;
+    this.inF.push(Math.max(0, frame | 0)); this.inK.push(key); this.inV.push(vel); this.inO.push(on); this.inC.push(chan || 1); this.inP.push(port); this.inS.push(src);
   }
 
   /** This block's note events: From FL Studio's outputs, then module by module along the event links. */
@@ -494,6 +584,7 @@ class Patcher implements EffectInstance {
     }
     if (m.evLinks.length > 1 && ev.n > 1) ev.sort();
     if (m.vfx && m.evOut) { m.vfx.run(m.fx as VfxFx, ev, this.clock, n, baseTick, spt, ppq, tempo, m.evOut); return; }
+    if (m.gen) { m.gen.hostEvents(ev); return; }
     const fx = m.fx;
     for (let i = 0; i < ev.n; i++) {
       // port -1: the module's own notes input (a nested Patcher's "Notes")
@@ -503,7 +594,7 @@ class Patcher implements EffectInstance {
   }
 
   process(L: Float32Array, R: Float32Array, n: number, ctx: FxContext): void {
-    if (this.pass) { this.inF.length = this.inK.length = this.inV.length = this.inO.length = this.inC.length = this.inP.length = 0; return; }
+    if (this.pass) { this.inF.length = this.inK.length = this.inV.length = this.inO.length = this.inC.length = this.inP.length = this.inS.length = 0; return; }
     // notes: From FL Studio's "Notes" (the slot's port) and "Port p" outputs
     const tempo = ctx.tempo > 1 ? ctx.tempo : 120, ppq = ctx.ppq > 0 ? ctx.ppq : 96;
     const spt = (this.sr * 60) / (tempo * ppq);
@@ -512,10 +603,13 @@ class Patcher implements EffectInstance {
     for (let i = 0; i < this.inF.length; i++) {
       const p = this.inP[i];
       const f = Math.min(n - 1, this.inF[i]);
-      if (p === this.wrapperPort) this.inOut.get(0)?.push(f, this.inK[i], this.inV[i], this.inO[i], this.inC[i]);
-      if (p >= 0) this.inOut.get(inPortOut(p))?.push(f, this.inK[i], this.inV[i], this.inO[i], this.inC[i]);
+      if (p === this.wrapperPort || p === CHANNEL_PORT) this.inOut.get(0)?.push(f, this.inK[i], this.inV[i], this.inO[i], this.inC[i], this.inS[i]);
+      if (p >= 0) this.inOut.get(inPortOut(p))?.push(f, this.inK[i], this.inV[i], this.inO[i], this.inC[i], this.inS[i]);
     }
-    this.inF.length = this.inK.length = this.inV.length = this.inO.length = this.inC.length = this.inP.length = 0;
+    this.inF.length = this.inK.length = this.inV.length = this.inO.length = this.inC.length = this.inP.length = this.inS.length = 0;
+    // the channel's voices queue their events voice by voice: put them in time order (note offs first)
+    for (const l of this.inOut.values()) if (l.n > 1) l.sort();
+    this.srcs.refresh();
     const inL = this.inL, inR = this.inR;
     let pk = this.peakIn;
     for (let i = 0; i < n; i++) {
@@ -557,6 +651,8 @@ class Patcher implements EffectInstance {
   }
 
   reset(): void {
+    this.inF.length = this.inK.length = this.inV.length = this.inO.length = this.inC.length = this.inP.length = this.inS.length = 0;
+    this.srcs.releaseAll();
     for (const m of this.nodes.values()) { m.fx.reset(); m.L.fill(0); m.R.fill(0); m.peak = 0; m.vfx?.reset(); }
     for (const e of this.edges.values()) { e.g0 = e.gain; if (e.dl) { e.dl.fill(0); e.dr!.fill(0); e.pos = 0; } }
     this.peakIn = this.peakOut = 0;

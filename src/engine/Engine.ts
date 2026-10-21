@@ -10,7 +10,7 @@ import type { InstrumentChannel, LayerTap } from './InstrumentChannel';
 import { LayerChannel } from './LayerChannel';
 import type { GenContext, GenEnv } from './gen/types';
 import { MidiOutChannel, type PortNote } from './MidiOut';
-import { channelOfSlot, channelSlotId } from '../model/gen/ids';
+import { channelOfSlot, channelSlotId, hostedInChannel } from '../model/gen/ids';
 import {
   collectPatternWindow, collectSongWindow, collectSongSounding, collectSounding, compileClips, compilePattern, songLength,
   type CompiledClip, type CompiledPattern, type SeqNote,
@@ -709,12 +709,13 @@ export class Engine {
       if (this.fxMonitorCountdown <= 0) {
         this.fxMonitorCountdown = Math.round(this.sampleRate / 30);
         const items = this.mixer.monitor();
-        // instrument editors watch "ch:<channel id>"
+        // instrument editors watch "ch:<channel id>", modules hosted in a Patcher channel "ch:<channel id>#<module id>"
         for (const id of this.mixer.watched) {
-          const chId = channelOfSlot(id);
+          const hc = hostedInChannel(id);
+          const chId = hc ? hc.channelId : channelOfSlot(id);
           const g = chId !== null ? this.channels.get(chId) : undefined;
           if (!(g instanceof GenChannel)) continue;
-          const d = g.monitor();
+          const d = hc ? g.monitorHosted(hc.moduleId) : g.monitor();
           if (d) items.push([id, d]);
         }
         if (items.length) this.post({ t: 'fxMonitor', items });
@@ -746,12 +747,14 @@ export class Engine {
    */
   private deliverPortNotes(): void {
     let gens: GenChannel[] | null = null;
-    for (const ch of this.channels.values()) if (ch instanceof GenChannel && ch.midiPort >= 0) (gens ??= []).push(ch);
+    for (const ch of this.channels.values()) if (ch instanceof GenChannel && (ch.midiPort >= 0 || ch.pluginPorts().length)) (gens ??= []).push(ch);
     if (!gens) return;
     const bus = this.noteBus;
     for (let i = 0; i < this.noteCount; i++) {
       const e = bus[i];
       for (const g of gens) {
+        // ports the plugin listens on by itself (Patcher's "Port p" outputs) get the raw note
+        if (g.pluginPorts().includes(e.port)) g.portNote(e.on, e.key, e.vel, e.frame, e.port, e.chan);
         if (g.midiPort !== e.port) continue;
         const tag = -1000 - e.chan;
         if (e.on) g.portNoteOn(e.key, e.vel, e.frame, tag);

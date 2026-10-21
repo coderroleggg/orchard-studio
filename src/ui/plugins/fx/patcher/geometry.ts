@@ -2,7 +2,7 @@
 // units (node centres) and screen units (after the view transform).
 
 import {
-  IN, OUT, nodePorts, shownOuts, type LinkKind, type PatcherGraph, type PatcherView,
+  IN, OUT, isGenModule, nodePorts, shownOuts, type LinkKind, type PatcherGraph, type PatcherView,
 } from '../../../../model/fx/plugins/patcher';
 import { iconSize } from './Hosted';
 
@@ -46,7 +46,7 @@ export function nodeCentre(g: PatcherGraph, id: string): { x: number; y: number 
 export function nodeBox(g: PatcherGraph, id: string): { w: number; h: number } {
   if (id === IN || id === OUT) return { w: IO_W, h: IO_H };
   const m = g.modules[id];
-  return m ? iconSize(m.plugin) : { w: 60, h: 40 };
+  return m ? iconSize(m.plugin, isGenModule(m.id)) : { w: 60, h: 40 };
 }
 
 export function toScreen(xf: Xf, x: number, y: number): { x: number; y: number } {
@@ -130,7 +130,7 @@ export function workspace(g: PatcherGraph, vw: number, vh: number): { w: number;
   for (const id of g.order) {
     const m = g.modules[id];
     if (!m) continue;
-    const b = iconSize(m.plugin);
+    const b = iconSize(m.plugin, isGenModule(m.id));
     grow(m.x, m.y, b.w, b.h);
   }
   return { w, h };

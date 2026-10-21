@@ -2,9 +2,11 @@
 
 Files: `src/model/fx/plugins/patcher.ts` (def) + `src/model/fx/plugins/patcher/graph.ts`
 (graph types and pure graph operations), `src/engine/effects/plugins/patcher.ts`
-(DSP), `src/ui/plugins/fx/patcher/` (editor: `index.tsx`, `MapView.tsx`,
+(DSP), `src/ui/plugins/fx/patcher/` (editor: `index.tsx` registers `Editor.tsx`, `MapView.tsx`,
 `Hosted.tsx`, `geometry.ts`, `sync.ts`, `icons.tsx`, `Surface.tsx`, `patcher.css`),
-`tests/fx/patcher.test.ts`.
+`tests/fx/patcher.test.ts`. The same graph, engine class and editor serve Patcher as an
+instrument (docs/research/gen/patcher.md): generator modules (ids starting with `g`), the
+`gen` graph flag, note sources from the channel.
 
 Sources: FL 2026 form `Patcher.txt` (SynthPanel 1001 x 591, TopWP 30 px, RootPopup
 and MinimapPopup menus), the manual page, screenshots `Patcher.png` (older theme,
@@ -99,11 +101,12 @@ event connection to the plugin. The clone does the same:
   Patcher's `takeStateChanges` at their graph paths
   (`$graph.modules.<id>.params.<key>`) and are mirrored into the project.
 
-What an effect-only Patcher cannot do (FL routes these into generators or out of
-Patcher): VFX outputs only reach effects that take notes and other VFX modules; note
+Generators now receive VFX output notes (the instrument version and generator modules,
+docs/research/gen/patcher.md: they follow the key, velocity and colour of the notes and the live
+levels of the channel note they come from); what is still without a receiver: note
 properties other than key / velocity / colour (pan, fine pitch, mod X / Y, release,
 `mod` curves of VFX Envelope / Key Mapper slides, Key Mapper's gain compensation) have
-no receiver; VFX Script runs per note (scripts that keep state across notes, such as
+none; VFX Script runs per note (scripts that keep state across notes, such as
 tick-driven arpeggiators of several held notes, run once per note; its Log shows
 compile-time output only); the Sequencer's latch continues for the one pattern length
 of its offline model after the last release; hosted modules do not listen on their own
@@ -204,8 +207,10 @@ hosted windows do not show them.
 - Event links carry notes (above); VFX editors do not show the live notes (Level Scaler
   lollipops, Sequencer detected chord, Keyboard Splitter input line).
 - Patcher inside Patcher is not offered in the Add plugin menu (Patcher's own
-  editor writes its slot directly, so a nested one would edit the outer graph);
-  the DSP would run it.
+  editor writes its slot directly, so a nested one would edit the outer graph, and hosted
+  ids have one level, "<slot>#<module>"); the DSP would run it.
+- Generators can be added to an effect slot's patch too (Add plugin > Generators, last):
+  their notes come from MIDI Out ports and VFX modules, at unity volume.
 - Modules get the outer track's sidechain inputs; FL can expose them as extra
   outputs of From FL Studio.
 - Plugin picker (F8) is the categorized plugin menu; plugin presets cannot be

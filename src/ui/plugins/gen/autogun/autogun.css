@@ -1,0 +1,16 @@
+/* Autogun editor (original drawing in the layout of FL's SynthPanel2, 282 x 379) */
+.ag-panel { position: relative; overflow: hidden; background: #000; font-family: 'Open Sans', Arial, Helvetica, sans-serif; }
+.ag-ctl { position: absolute; box-sizing: border-box; cursor: default; touch-action: none; user-select: none; }
+.ag-none { pointer-events: none; }
+.ag-screen {
+  position: absolute; box-sizing: border-box; overflow: hidden; padding: 3px 4px 0 5px; color: #9fb0bb; font-size: 11px; line-height: 14px;
+  white-space: pre-wrap; word-break: break-word; pointer-events: none;
+}
+.ag-title { color: #e6eef2; font-size: 15px; line-height: 18px; font-weight: 600; letter-spacing: 0.01em; }
+.ag-author { color: #7fd0ea; font-size: 11px; line-height: 15px; font-weight: 600; margin-bottom: 4px; }
+.ag-about {
+  position: absolute; box-sizing: border-box; background: rgba(21, 28, 32, 0.96); color: #b9c6cd; font-size: 11px; line-height: 15px; padding: 10px 12px;
+  border: 1px solid #55636b; border-radius: 3px; cursor: pointer; z-index: 5;
+}
+.ag-about b { color: #e6eef2; font-size: 14px; }
+.ag-about .ag-small { color: #82939c; font-size: 10px; margin-top: 8px; }

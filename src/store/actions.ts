@@ -11,9 +11,9 @@ import { defaultLayer, removeFromLayers, resetChildren, setChildren, splitChildr
 import { ticksPerStep, ticksPerBar } from '../model/timing';
 import { flashHint } from '../ui/hint';
 import { fxDef, fxOutputs, fxParamDef } from '../model/fx/registry';
-import { HOSTED_SEP, allFx, hostedModule, splitHostedId } from '../model/fx/hosted';
+import { HOSTED_SEP, allFx, hostedModule, isGenSlot, splitHostedId } from '../model/fx/hosted';
 import { defaultGenParams, genDef, genOutputs, genParamDef } from '../model/gen/registry';
-import { allGens, channelOfSlot, channelSlotId, genParamKeyOf } from '../model/gen/ids';
+import { GEN_PARAM_PATH, allGens, channelOfSlot, channelSlotId, genParamKeyOf } from '../model/gen/ids';
 import { currentTick, live } from '../audio/live';
 import type { UiState, WindowState } from './ui';
 import {
@@ -283,11 +283,11 @@ export function insertGenerator(afterId: Id, g: GeneratorChoice): Id {
   return addGenerator(g, i < 0 ? undefined : i + 1);
 }
 
-/** A channel's links that belong to its generator: its instrument parameters (and a layer's FADE) as targets and its controller outputs as sources. */
+/** A channel's links that belong to its generator: its instrument parameters (also those of modules hosted in its Patcher; and a layer's FADE) as targets and its controller outputs as sources. */
 function dropGeneratorLinks(d: P, channelId: Id): void {
   if (!d.links?.length) return;
   const src = channelSlotId(channelId);
-  d.links = d.links.filter((l) => l.source?.slotId !== src && !(l.target.scope === 'channel' && l.target.id === channelId && (genParamKeyOf(l.target.path) !== null || l.target.path.startsWith('layer.'))));
+  d.links = d.links.filter((l) => l.source?.slotId !== src && !(l.target.scope === 'channel' && l.target.id === channelId && (l.target.path.startsWith(GEN_PARAM_PATH) || l.target.path.startsWith('layer.'))));
 }
 
 /**
@@ -712,9 +712,9 @@ export function setPeq2(track: number, slot: number, label: string, recipe: (p: 
   setFx(track, slot, label, (s) => recipe(s.params as unknown as Draft<PEQ2Params>), mergeKey);
 }
 
-/** A plugin parameter's definition: an instrument's ("ch:<channel id>") or an effect's. */
+/** A plugin parameter's definition: an instrument's ("ch:<channel id>", or a generator hosted in Patcher) or an effect's. */
 export function pluginParamDef(slotId: Id, plugin: string, key: string) {
-  return channelOfSlot(slotId) !== null ? genParamDef(plugin, key) : fxParamDef(plugin, key);
+  return isGenSlot(slotId) ? genParamDef(plugin, key) : fxParamDef(plugin, key);
 }
 
 /**
@@ -728,8 +728,10 @@ export { HOSTED_SEP, splitHostedId, allFx, allGens, channelOfSlot, channelSlotId
 /**
  * Where plugin `slotId` lives: a mixer slot, a module hosted in Patcher
  * ("<slot>#<module>", `hosted`), or a channel's instrument plugin ("ch:<channel
- * id>", `channel`; slot -1, track = the channel's mixer track). `fx` describes
- * it as a slot (plugin id, name, enabled, params) either way.
+ * id>", `channel`; slot -1, track = the channel's mixer track). A module hosted
+ * in a channel's Patcher ("ch:<channel id>#<module>") has both `hosted` and
+ * `channel`. `fx` describes it as a slot (plugin id, name, enabled, params)
+ * either way.
  */
 export function findFx(p: Project, slotId: Id): { track: number; slot: number; fx: FxSlot; hosted?: { slotId: Id; moduleId: string }; channel?: Id } | null {
   const chId = channelOfSlot(slotId);
@@ -747,7 +749,7 @@ export function findFx(p: Project, slotId: Id): { track: number; slot: number; f
     const m = host ? hostedModule(host.fx.params, h.moduleId) : undefined;
     if (!host || !m) return null;
     return {
-      track: host.track, slot: host.slot, hosted: h,
+      track: host.track, slot: host.slot, hosted: h, ...(host.channel !== undefined ? { channel: host.channel } : {}),
       fx: { id: slotId, plugin: m.plugin, name: m.name ?? m.plugin, enabled: host.fx.enabled, mix: 1, params: m.params },
     };
   }
@@ -760,7 +762,11 @@ export function findFx(p: Project, slotId: Id): { track: number; slot: number; f
 
 /** The writable params of a slot, of a hosted module or of a channel's instrument, inside a draft. */
 function slotParamsDraft(d: Draft<Project>, loc: { track: number; slot: number; hosted?: { moduleId: string }; channel?: Id }): Draft<Record<string, unknown>> | undefined {
-  if (loc.channel !== undefined) return findChannel(d, loc.channel)?.plugin?.params as Draft<Record<string, unknown>> | undefined;
+  if (loc.channel !== undefined) {
+    const params = findChannel(d, loc.channel)?.plugin?.params as Draft<Record<string, unknown>> | undefined;
+    // a module hosted in the channel's Patcher
+    return loc.hosted ? hostedModule(params, loc.hosted.moduleId)?.params as Draft<Record<string, unknown>> | undefined : params;
+  }
   const s = d.mixer.tracks[loc.track]?.slots[loc.slot];
   if (!s) return undefined;
   if (!loc.hosted) return s.params as Draft<Record<string, unknown>>;

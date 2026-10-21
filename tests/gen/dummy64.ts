@@ -1,4 +1,4 @@
-// Checks shared by FL 2026's 64-bit dummies (Wasp, Wasp XT, FL Slayer; docs/research/gen/wasp.md):
+// Checks shared by FL 2026's 64-bit dummies (Wasp, Wasp XT, FL Slayer, Dashboard; docs/research/gen/wasp.md):
 // registration as FL reports it (hidden, parameter list, DefPoly, form size), no voices and
 // silence through a channel whatever the parameters, and the dummy window's text.
 import { describe, it, expect } from 'vitest';

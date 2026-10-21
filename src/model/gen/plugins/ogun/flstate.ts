@@ -56,6 +56,8 @@ export interface OgFlState {
   defaulted: string[];
   /** Maps converted from the old linear scale (version < 6): 'm1'.. */
   converted: string[];
+  /** Autogun's states (parseOgunState `autogun`): the preset counter (plug+0x620, since version 19), the seed of the generated preset. */
+  counter?: number;
 }
 
 const f32 = Math.fround;
@@ -504,9 +506,10 @@ export function convertOldMap(m: OgEnv, order: number): OgEnv {
 /**
  * Parse a plugin state blob (u32 version + zlib stream) of any version FL's Ogun can load (0 .. 0x130003) into what the
  * plugin holds after loading it (`asSaved`: the values as stored, without the fix-ups FL does while loading: a state FL's
- * plugin saved holds objects FL never loaded as they are). Throws OgunStateError on bad input.
+ * plugin saved holds objects FL never loaded as they are; `autogun`: the layout of FL's Autogun, which adds the preset counter).
+ * Throws OgunStateError on bad input.
  */
-export function parseOgunState(blob: Uint8Array, asSaved = false): OgFlState {
+export function parseOgunState(blob: Uint8Array, asSaved = false, autogun = false): OgFlState {
   const fix = !asSaved;
   if (blob.length < 8 || blob.length > OG_MAX_FILE_BYTES) throw new OgunStateError('bad state size');
   const dv = new DataView(blob.buffer, blob.byteOffset, blob.byteLength);
@@ -551,6 +554,8 @@ export function parseOgunState(blob: Uint8Array, asSaved = false): OgFlState {
     for (let i = 0; i + 1 < b.length; i += 2) info += String.fromCharCode(b[i] | (b[i + 1] << 8));
   }
 
+  // Autogun's SaveRestoreState (0x65800) stores the preset counter between the info text and the articulators (version >= 19)
+  const counter = autogun && ver >= 19 ? r.i32() >>> 0 : undefined;
   const defaulted: string[] = [], converted: string[] = [];
   const arts: OgArt[] = [];
   for (let i = 0; i < 13; i++) {
@@ -567,7 +572,7 @@ export function parseOgunState(blob: Uint8Array, asSaved = false): OgFlState {
   // the old maps' conversion switches the natural (octave) EQ mapping scale on (settings byte plug+0x223)
   if (ver < 6) ints[57] = (ints[57] & ~(255 << 24)) | (1 << 24);
   if (r.p !== r.end) throw new OgunStateError(`${r.end - r.p} bytes left over`);
-  return { version: ver, ints, b3, eq, info, arts, maps, defaulted, converted };
+  return { version: ver, ints, b3, eq, info, arts, maps, defaulted, converted, ...(counter !== undefined ? { counter } : {}) };
 }
 
 /**

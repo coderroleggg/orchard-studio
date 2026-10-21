@@ -1,10 +1,11 @@
 // Patcher <-> store glue: graph edits, and the editor contexts of hosted
-// modules. A hosted module's editor edits "<slot>#<module>": the store's slot
-// actions (setFxParam, editFx, setFxStateNoHistory, findFx) resolve that id to
-// the module inside Patcher's state (`params.$graph.modules.<id>.params`), as
-// does display data (useFxMonitor -> Patcher's monitorHosted), so every editor
-// works hosted without changes; automation targets go to the module's
-// params inside the Patcher slot (fxTargetOf).
+// modules. A hosted module's editor edits "<slot>#<module>" ("ch:<channel>#<module>"
+// in the instrument version): the store's slot actions (setFxParam, editFx,
+// setFxStateNoHistory, findFx) resolve that id to the module inside Patcher's
+// state (`params.$graph.modules.<id>.params`), as does display data (useFxMonitor
+// -> Patcher's monitorHosted), so every editor works hosted without changes;
+// automation targets go to the module's params inside the Patcher state
+// (fxTargetOf).
 
 import type { Draft } from 'immer';
 import { store } from '../../../../store';
@@ -12,6 +13,7 @@ import * as A from '../../../../store/actions';
 import { findFx } from '../../../../store/actions';
 import { GRAPH_KEY, normalizeGraph, type PatcherGraph, type PatcherModule } from '../../../../model/fx/plugins/patcher';
 import { HOSTED_SEP } from '../../../../model/fx/hosted';
+import { channelOfSlot } from '../../../../model/gen/ids';
 import type { FxEditorCtx } from '../../kit';
 
 type State = Record<string, unknown>;
@@ -28,7 +30,7 @@ export function patcherState(slotId: string): { params: State; graph: PatcherGra
 /** Undoable graph edit. */
 export function editGraph(slotId: string, label: string, recipe: (g: Draft<PatcherGraph>) => void, mergeKey?: string): void {
   A.editFx(slotId, label, (p) => {
-    if (!p[GRAPH_KEY] || typeof p[GRAPH_KEY] !== 'object') p[GRAPH_KEY] = normalizeGraph(undefined);
+    if (!p[GRAPH_KEY] || typeof p[GRAPH_KEY] !== 'object') p[GRAPH_KEY] = normalizeGraph(undefined, channelOfSlot(slotId) !== null);
     recipe(p[GRAPH_KEY] as Draft<PatcherGraph>);
   }, mergeKey);
 }
@@ -50,7 +52,8 @@ export function focusModule(slotId: string, moduleId: string | null): void {
 
 /** Inert slot id for editors that must not write anywhere (node thumbnails). */
 export function idleSlotId(slotId: string, moduleId: string): string {
-  return `patcher-idle:${slotId}:${moduleId}`;
+  // hosted-id shaped ("<host>#<module>") so a generator module's thumbnail still reads the instrument registry (isGenSlot)
+  return `patcher-idle:${slotId}${HOSTED_SEP}${moduleId}`;
 }
 
 /**

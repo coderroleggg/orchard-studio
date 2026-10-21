@@ -21,6 +21,7 @@ import { FxEditorContext, type FxEditorCtx } from './kit';
 import { editorFor, persistentPlugins } from './registry';
 import { genEditorFor, persistentGenPlugins } from './genRegistry';
 import { genDef } from '../../model/gen/registry';
+import { hostedInChannel } from '../../model/gen/ids';
 import { GenericEditor, genericSize } from './GenericEditor';
 import { EditorBoundary } from './EditorBoundary';
 import { flashHint, setHint, clearHint } from '../hint';
@@ -65,7 +66,7 @@ function PersistentGen() {
 const PersistentGenSlot = memo(function PersistentGenSlot({ slotId }: { slotId: string }) {
   const plugin = useProject((p) => findFx(p, slotId)?.fx.plugin ?? null);
   const params = useProject((p) => findFx(p, slotId)?.fx.params ?? null);
-  const name = useProject((p) => p.channels.find((c) => c.id === A.channelOfSlot(slotId))?.name ?? '');
+  const name = useProject((p) => p.channels.find((c) => c.id === (A.channelOfSlot(slotId) ?? hostedInChannel(slotId)?.channelId))?.name ?? '');
   const mod = plugin ? genEditorFor(plugin) : undefined;
   if (!plugin || !params || !mod?.Persistent) return null;
   const ctx: FxEditorCtx = { slotId, plugin, params: params as Record<string, unknown>, trackName: name, pluginName: genDef(plugin)?.name ?? plugin };
