@@ -15,8 +15,8 @@ Implemented: the 40 instruments below, the Layer channel and the four legacy
 64-bit dummies at the end (Wasp, Wasp XT, FL Slayer, Dashboard: hidden and
 silent, as in FL 2026). FL's other stock instruments are **not implemented**
 (the work was stopped at this set): DirectWave, FL Studio Mobile (and its
-Rack), FLEX and the Audio Clip channel. They do not appear in the Channel Rack
-or Browser menus.
+Rack) and FLEX. They do not appear in the Channel Rack or Browser menus. The
+Audio Clip channel is described in [audio-clips.md](audio-clips.md).
 
 ## FL sound content
 

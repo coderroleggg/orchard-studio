@@ -6,6 +6,7 @@ import { faderToGain, mixerPanMatrix, eqFreqHz, eqWidthQ } from '../model/scales
 import { SvfCoefs, SvfMode, SvfState } from './dsp/svf';
 import { createEffect, type EffectInstance, type FxContext, type FxEnv, type FxMonitor } from './effects';
 import type { PortNote } from './MidiOut';
+import type { MonitorMode, RecPickup, TrackInput } from '../model/recording';
 
 export const FX_SLOTS = 10;
 
@@ -96,6 +97,22 @@ const IDLE_BLOCKS = 200;
  */
 const SETTLE_SECONDS = 1;
 
+/**
+ * Recording taps (engine/Recording.ts): where in the track's signal flow a
+ * recorded track hands its audio to the recorder. EXT is the audio input
+ * itself, MIX the track input (channels, routes and the input) before the FX
+ * slots, FX after the slots, EQ after the built-in EQ, LVL after volume and
+ * panning (mute not applied), POST the track's final output.
+ */
+export const TAP_EXT = 1;
+export const TAP_MIX = 2;
+export const TAP_FX = 3;
+export const TAP_EQ = 4;
+export const TAP_LVL = 5;
+export const TAP_POST = 6;
+const TAP_OF: Record<RecPickup, number> = { ext: TAP_EXT, mix: TAP_MIX, fx: TAP_FX, eq: TAP_EQ, lvl: TAP_LVL, post: TAP_POST };
+export type TapFn = (L: Float32Array, R: Float32Array, n: number) => void;
+
 export class TrackRuntime {
   readonly index: number;
   readonly inL: Float32Array;
@@ -105,6 +122,22 @@ export class TrackRuntime {
   readonly chR: Float32Array;
   hasInput = false;
   hasChannelInput = false;
+  // ---- audio input and recording (docs/recording.md)
+  /** The audio device channels feeding this track (null: no input). */
+  input: TrackInput | null = null;
+  armed = false;
+  pickup: RecPickup = 'ext';
+  monitor: MonitorMode = 'armed';
+  /** An Edison on the track is armed to record: it hears the input whatever the monitoring mode. */
+  edisonArmed = false;
+  /** This block's external input (stereo; a mono input is on both sides). */
+  readonly extL: Float32Array;
+  readonly extR: Float32Array;
+  /** The external input flows into the track this block. */
+  extMonitored = false;
+  /** Recording tap (null: the track is not being recorded) and where it taps. */
+  tap: TapFn | null = null;
+  tapAt = 0;
   /** A slot of this track received note events this block. */
   noteWake = false;
   /** Notes the track's plugins were told are held (a held note keeps the track running). */
@@ -149,6 +182,14 @@ export class TrackRuntime {
     this.chR = new Float32Array(blockSize);
     this.dryL = new Float32Array(blockSize);
     this.dryR = new Float32Array(blockSize);
+    this.extL = new Float32Array(blockSize);
+    this.extR = new Float32Array(blockSize);
+  }
+
+  /** Does the audio input play through the track? ("Monitor external input": Off / When armed / On.) */
+  monitored(): boolean {
+    if (!this.input) return false;
+    return this.monitor === 'on' || (this.monitor === 'armed' && (this.armed || this.edisonArmed));
   }
 
   /** Everything except the effect slots (used by automation every block). */
@@ -211,6 +252,15 @@ export class TrackRuntime {
         cur.mix = s.mix;
       }
     }
+    this.input = tr.input ? { ch: tr.input.ch, mono: !!tr.input.mono } : null;
+    this.armed = !!tr.armed;
+    this.pickup = tr.pickup ?? 'ext';
+    this.monitor = tr.monitor ?? 'armed';
+    this.edisonArmed = false;
+    for (const s of tr.slots) {
+      // Edison on the track, armed to record (its Record parameter): the input flows into the track so it hears it
+      if (s && s.plugin === 'edison' && s.enabled && Number((s.params as Record<string, unknown>).rec) >= 0.5) this.edisonArmed = true;
+    }
     this.heldNotes = 0;
     for (const s of this.slots) if (s) this.heldNotes += s.heldCount;
     this.sends = [];
@@ -249,6 +299,8 @@ export class TrackRuntime {
    */
   process(n: number, ctx: FxContext): void {
     const L = this.inL, R = this.inR;
+    const tap = this.tap, at = this.tapAt;
+    if (tap && at === TAP_MIX) this.tapMix(tap, n);
     for (const s of this.slots) {
       if (!s || !s.enabled || !this.fxEnabled) continue;
       if (s.pending.length || s.stale) this.mixer?.deliverTo(s, this);
@@ -265,12 +317,14 @@ export class TrackRuntime {
         }
       }
     }
+    if (tap && at === TAP_FX) tap(L, R, n);
     // built-in EQ (after the FX slots)
     for (let b = 0; b < 3; b++) {
       if (!this.eqOn[b]) continue;
       this.eqL[b].process(this.eqCoefs[b], L, 0, n);
       this.eqR[b].process(this.eqCoefs[b], R, 0, n);
     }
+    if (tap && at === TAP_EQ) tap(L, R, n);
     if (this.polarity) for (let i = 0; i < n; i++) { L[i] = -L[i]; R[i] = -R[i]; }
     if (this.swapLR) for (let i = 0; i < n; i++) { const t = L[i]; L[i] = R[i]; R[i] = t; }
 
@@ -287,6 +341,7 @@ export class TrackRuntime {
     }
     this.sep.value = k1;
 
+    if (tap && at === TAP_LVL) this.tapLevel(tap, n);
     // volume x mute, then merge & pan matrix, all ramped across the block
     const g0 = this.vol.value * this.mute.value, g1 = this.vol.target * this.mute.target;
     const dg = (g1 - g0) / n;
@@ -307,6 +362,30 @@ export class TrackRuntime {
     this.vol.value = this.vol.target;
     this.mute.value = this.mute.target;
     P.set(T);
+    if (tap && at === TAP_POST) tap(L, R, n);
+  }
+
+  /** MIX tap: the track input, with the audio input added when it is not already monitored. */
+  private tapMix(tap: TapFn, n: number): void {
+    if (!this.input || this.extMonitored) { tap(this.inL, this.inR, n); return; }
+    const dl = this.dryL, dr = this.dryR, L = this.inL, R = this.inR, el = this.extL, er = this.extR;
+    for (let i = 0; i < n; i++) { dl[i] = L[i] + el[i]; dr[i] = R[i] + er[i]; }
+    tap(dl, dr, n);
+  }
+
+  /** LVL tap: the signal after volume and panning, before the mute switch. */
+  private tapLevel(tap: TapFn, n: number): void {
+    const L = this.inL, R = this.inR, dl = this.dryL, dr = this.dryR;
+    const g0 = this.vol.value, dg = (this.vol.target - g0) / n;
+    const P = this.pan, T = this.panT;
+    const d0 = (T[0] - P[0]) / n, d1 = (T[1] - P[1]) / n, d2 = (T[2] - P[2]) / n, d3 = (T[3] - P[3]) / n;
+    for (let i = 0; i < n; i++) {
+      const g = g0 + dg * i;
+      const l = L[i] * g, r = R[i] * g;
+      dl[i] = (P[0] + d0 * i) * l + (P[1] + d1 * i) * r;
+      dr[i] = (P[2] + d2 * i) * l + (P[3] + d3 * i) * r;
+    }
+    tap(dl, dr, n);
   }
 }
 
@@ -340,6 +419,14 @@ export class MixerEngine {
   private delayedNotes: { slot: SlotRuntime; track: TrackRuntime; at: number; ev: PortNote }[] = [];
   /** Frames processed so far (start of the current block). */
   private clock = 0;
+  /** The audio device's input channels of the current block (null: no input device). */
+  private ext: Float32Array[] | null = null;
+  /** Tracks with an audio input selected. */
+  private inputTracks: TrackRuntime[] = [];
+  /** Tracks being recorded (a tap is installed). */
+  private capTracks: TrackRuntime[] = [];
+  /** "Always show external input levels": the meters show an unmonitored input too. */
+  showInputLevels = false;
 
   /** rendering: offline render (project export); effects see FxContext.rendering. */
   constructor(numTracks: number, sampleRate: number, blockSize: number, rendering = false) {
@@ -406,6 +493,7 @@ export class MixerEngine {
     const t = this.tracks[tr.index];
     if (!t) return;
     t.apply(tr, this.sampleRate, this.blockSize, this.env);
+    this.inputTracks = this.tracks.filter((x) => x.input);
     this.portsDirty = true;
     this.computeOrder();
     this.computeSidechains();
@@ -504,6 +592,66 @@ export class MixerEngine {
       t.hasInput = false;
       t.hasChannelInput = false;
     }
+    if (this.inputTracks.length) this.fillExternal(n);
+  }
+
+  // ------------------------------------------------------- audio input
+  /** The audio device's input channels for the coming block (one array per device channel, null: none). Call before beginBlock(). */
+  setInput(channels: Float32Array[] | null): void {
+    this.ext = channels && channels.length ? channels : null;
+  }
+
+  /** Every track with an input reads its device channels (a mono input is on both sides; a missing channel is silence). */
+  private fillExternal(n: number): void {
+    const ch = this.ext;
+    for (const t of this.inputTracks) {
+      const sel = t.input!;
+      const a = ch ? ch[sel.ch] : undefined;
+      const b = sel.mono ? a : ch ? ch[sel.ch + 1] : undefined;
+      const L = t.extL, R = t.extR;
+      if (a) L.set(a.subarray(0, n)); else L.fill(0, 0, n);
+      if (b) R.set(b.subarray(0, n)); else R.fill(0, 0, n);
+    }
+  }
+
+  /** Add a track's audio input to its input (when monitored), or only meter it. */
+  private takeExternal(t: TrackRuntime, n: number): void {
+    const mon = !!this.ext && t.monitored();
+    t.extMonitored = mon;
+    const L = t.extL, R = t.extR;
+    if (mon) {
+      const dl = t.inL, dr = t.inR;
+      for (let k = 0; k < n; k++) { dl[k] += L[k]; dr[k] += R[k]; }
+      t.hasInput = true;
+    } else if (this.showInputLevels && this.ext) {
+      let pl = t.peakL, pr = t.peakR;
+      for (let k = 0; k < n; k++) {
+        const l = L[k] < 0 ? -L[k] : L[k], r = R[k] < 0 ? -R[k] : R[k];
+        if (l > pl) pl = l;
+        if (r > pr) pr = r;
+      }
+      t.peakL = pl; t.peakR = pr;
+    }
+  }
+
+  // ------------------------------------------------------- recording
+  /** Install (or, with null, remove) the recording tap of a track: its signal at `pickup` goes to `fn` every block. */
+  setTap(index: number, pickup: RecPickup | null, fn: TapFn | null): void {
+    const t = this.tracks[index];
+    if (!t) return;
+    t.tap = pickup && fn ? fn : null;
+    t.tapAt = pickup && fn ? TAP_OF[pickup] : 0;
+    this.capTracks = this.tracks.filter((x) => x.tap);
+  }
+
+  /** Frames by which the audible playback lags the transport: the plugin delay compensation up to the master and its own latency. */
+  playbackLag(): number {
+    return (this.arrival[0] ?? 0) + (this.latencies[0] ?? 0);
+  }
+
+  /** Frames by which the channel audio arrives late at a track (plugin delay compensation of the routes into it). */
+  trackArrival(index: number): number {
+    return this.arrival[index] ?? 0;
   }
 
   /** Move the channel bus (PDC-delayed) into the track input. */
@@ -528,13 +676,17 @@ export class MixerEngine {
   }
 
   process(outL: Float32Array, outR: Float32Array, n: number): void {
+    // recorded tracks picking up the audio input itself
+    for (const t of this.capTracks) if (t.tapAt === TAP_EXT) t.tap!(t.extL, t.extR, n);
     for (const i of this.order) {
       const t = this.tracks[i];
       this.takeChannels(t, n);
+      if (t.input) this.takeExternal(t, n);
       if (t.hasInput || t.noteWake || t.heldNotes > 0) t.silentBlocks = 0; else t.silentBlocks++;
       // Skip idle tracks once their effect tails have surely decayed (new effects settle first).
+      // A track being recorded keeps running: its recording must not miss a block.
       if (t.wakeBlocks > 0) t.wakeBlocks--;
-      else if (t.silentBlocks > t.idleBlocks) continue;
+      else if (t.silentBlocks > t.idleBlocks && !t.tap) continue;
       this.runTrack(t, n);
       for (const s of t.sends) {
         const dst = this.tracks[s.target];

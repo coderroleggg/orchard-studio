@@ -145,6 +145,15 @@ export function prepareSample(sampleId: Id, s: SamplerSettings, targetRate: numb
   return { key, data, sampleRate: rate };
 }
 
+/** A buffer another module derived from prepared samples (Audio Clips' stretched samples), cached under its own key. */
+export function getCachedBuffer(key: string): Float32Array[] | undefined {
+  return processed.get(key);
+}
+
+export function putCachedBuffer(key: string, data: Float32Array[]): void {
+  processed.set(key, data);
+}
+
 /** Back-compat helpers used by older call sites. */
 export function getProcessed(key: string, sampleId: Id, s: SamplerSettings): Float32Array[] | null {
   void key;
@@ -263,9 +272,11 @@ function simpleReverb(ch: Float32Array[], sr: number, mix: number, size: number)
   });
 }
 
-/** Drop one processed buffer from the cache. */
+/** Drop one processed buffer from the cache (and the prepared sample an Audio Clip's stretched buffer was made from). */
 export function forgetProcessedKey(key: string): void {
   processed.delete(key);
+  const st = key.indexOf('|st:');
+  if (st > 0) processed.delete(key.slice(0, st));
 }
 
 /** Is this processed buffer already cached (no work needed)? */

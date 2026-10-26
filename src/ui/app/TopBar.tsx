@@ -23,6 +23,8 @@ import { faderToDb, formatDb } from '../../model/scales';
 import { buildMainMenus } from './menus';
 import { SNAP_OPTIONS, snapLabel } from '../snap';
 import { saveProjectAs, exportWav } from '../../project/io';
+import { setRec, toggleRecord } from '../../audio/recording';
+import { countdownMenu, recordFilterMenu, waitMenu } from './recordingMenus';
 import './topbar.css';
 
 export function TopBar() {
@@ -34,10 +36,15 @@ export function TopBar() {
         <TransportPanel />
         <IconToggle icon={<IconMetronome size={15} />} hint="Metronome (Ctrl+M)" on={useUi((u) => u.metronome)}
           onClick={() => { A.setUi((u) => { u.metronome = !u.metronome; }); host.setMetronome(store.ui.metronome); }} />
-        <IconToggle icon={<GlyphWait />} hint="Wait for input to start playing (not available)" disabled />
-        <IconToggle icon={<GlyphCountIn />} hint="Countdown before recording (not available)" disabled />
+        <IconToggle icon={<GlyphWait />} hint="Wait for input to start playing (Ctrl+I) - right-click for options" on={useUi((u) => u.rec.waitForInput)}
+          onClick={() => setRec({ waitForInput: !store.ui.rec.waitForInput })}
+          onRight={(e) => openMenu(e.clientX, e.clientY, waitMenu())} />
+        <IconToggle icon={<GlyphCountIn />} hint="Countdown before recording (Ctrl+P) - right-click for the duration" on={useUi((u) => u.rec.countdown)}
+          onClick={() => setRec({ countdown: !store.ui.rec.countdown })}
+          onRight={(e) => openMenu(e.clientX, e.clientY, countdownMenu())} />
         <IconToggle icon={<GlyphBlend />} hint="Blend recording (not available)" disabled />
-        <IconToggle icon={<GlyphLoopRec />} hint="Loop recording (not available)" disabled />
+        <IconToggle icon={<GlyphLoopRec />} hint="Loop recording - every pass of the loop is a new take" on={useUi((u) => u.rec.loop)}
+          onClick={() => setRec({ loop: !store.ui.rec.loop })} />
         <TimePanel />
         <OutputMonitor />
         <CpuPanel />
@@ -77,10 +84,11 @@ function historyMenu(): MenuItem[] {
 }
 
 // ------------------------------------------------------------- generic bits
-function IconToggle({ icon, hint, on = false, onClick, disabled = false }: { icon: React.ReactNode; hint: string; on?: boolean; onClick?: () => void; disabled?: boolean }) {
+function IconToggle({ icon, hint, on = false, onClick, onRight, disabled = false }: { icon: React.ReactNode; hint: string; on?: boolean; onClick?: () => void; onRight?: (e: React.MouseEvent) => void; disabled?: boolean }) {
   return (
     <button className={'rk-icon' + (on ? ' on' : '') + (disabled ? ' disabled' : '')}
-      onPointerDown={(e) => { e.preventDefault(); if (!disabled) onClick?.(); }}
+      onPointerDown={(e) => { e.preventDefault(); if (!disabled && e.button === 0) onClick?.(); }}
+      onContextMenu={(e) => { e.preventDefault(); if (!disabled) onRight?.(e); }}
       onPointerEnter={() => setHint(hint)} onPointerLeave={clearHint}>
       {icon}
     </button>
@@ -166,6 +174,7 @@ function TransportPanel() {
   const songMode = useProject((p) => p.songMode);
   const playing = useLive((l) => l.playing);
   const recording = useUi((u) => u.recording);
+  const recState = useLive((l) => l.rec.state);
   const lastStop = useRef(0);
   return (
     <div className="transport">
@@ -196,9 +205,10 @@ function TransportPanel() {
         onPointerEnter={() => setHint('Stop (Space) - double-click: stop all sounds')} onPointerLeave={clearHint}>
         <IconStop size={12} />
       </button>
-      <button className={'tbtn rec' + (recording ? ' active' : '')}
-        onPointerDown={(e) => { e.preventDefault(); A.setUi((u) => { u.recording = !u.recording; }); flashHint('Recording is not available in this version'); }}
-        onPointerEnter={() => setHint('Record (R)')} onPointerLeave={clearHint}>
+      <button className={'tbtn rec' + (recording ? ' active' : '') + (recState !== 'idle' ? ' live ' + recState : '')}
+        onPointerDown={(e) => { e.preventDefault(); if (e.button === 0) void toggleRecord(); }}
+        onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, recordFilterMenu()); }}
+        onPointerEnter={() => setHint('Record (R) - right-click for the recording filter and options')} onPointerLeave={clearHint}>
         <IconRecord size={11} />
       </button>
       <TempoDisplay />

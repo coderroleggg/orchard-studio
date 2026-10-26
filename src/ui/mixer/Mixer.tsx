@@ -20,6 +20,10 @@ import {
   eqFreqHz, eqWidthQ, formatHz,
 } from '../../model/scales';
 import { mixerTrackName, NUM_INSERTS, MIXER_TRACK_COLOR } from '../../model/defaults';
+import { armTrack, openAudioEditor, setRec, setTrackInput } from '../../audio/recording';
+import { diskRecordingItems } from '../app/recordingMenus';
+import { delayMenu, inputMappingMenu, inputMenu, nameRecording, pickupMenu } from './inputMenus';
+import { PICKUP_CODE, formatDelay, inputShort } from '../../model/recording';
 import { SvfCoefs, SvfMode } from '../../engine/dsp/svf';
 import './mixer.css';
 
@@ -40,6 +44,7 @@ export function MixerWindow() {
       const k = e.key;
       if ((k === 's' || k === 'S') && !e.ctrlKey && !e.metaKey) { A.soloMixer(i, e.altKey); return true; }
       if (k === 'F2') { renameTrack(i); return true; }
+      if ((e.ctrlKey || e.metaKey) && (k === 'e' || k === 'E')) { openAudioEditor(i); return true; }
       if ((e.ctrlKey || e.metaKey) && (k === 'l' || k === 'L')) { A.routeSelectedChannelsTo(i); flashHint('Selected channels routed to ' + mixerTrackName(store.project.mixer.tracks[i])); return true; }
       if (k === 'ArrowLeft' && !e.altKey) { A.selectMixerTrack(Math.max(0, i - 1)); return true; }
       if (k === 'ArrowRight' && !e.altKey) { A.selectMixerTrack(Math.min(CURRENT, i + 1)); return true; }
@@ -54,6 +59,12 @@ export function MixerWindow() {
         { label: 'Mixer track', submenu: trackMenu(sel) },
         { separator: true },
         { label: 'Unmute all', onClick: () => A.unmuteAllMixer() },
+        { separator: true },
+        { label: 'Disk recording', submenu: diskRecordingItems() },
+        {
+          label: 'Always show external input levels', checked: store.ui.rec.showInputLevels,
+          hint: 'Show external input levels even when monitoring is off', onClick: () => setRec({ showInputLevels: !store.ui.rec.showInputLevels }),
+        },
       ]}>
       <div className="mx-root">
         <div className="mx-strips">
@@ -94,12 +105,20 @@ function trackMenu(i: number): MenuItem[] {
     { label: 'Route selected channels to this track', shortcut: 'Ctrl+L', onClick: () => A.routeSelectedChannelsTo(i) },
     { label: 'Reset routing', disabled: i === 0, onClick: () => store.update('Reset routing', (d) => { const tr = d.mixer.tracks[i]; tr.sends = i === CURRENT ? {} : { 0: FADER_DEFAULT }; }) },
     { separator: true },
+    ...(i >= 1 && i <= NUM_INSERTS ? [
+      { label: t.armed ? 'Disarm recording' : 'Arm recording', onClick: () => armTrack(i, !t.armed) } as MenuItem,
+      { label: 'Open audio editor', shortcut: 'Ctrl+E', onClick: () => openAudioEditor(i) } as MenuItem,
+      { label: 'Open audio editor and record', onClick: () => openAudioEditor(i, true) } as MenuItem,
+      { separator: true } as MenuItem,
+    ] : []),
     { label: 'Solo', shortcut: 'S', onClick: () => A.soloMixer(i) },
     { label: 'Alt solo', shortcut: 'Alt+S', onClick: () => A.soloMixer(i, true) },
     { separator: true },
     { label: 'Reset track to default', onClick: () => store.update('Reset mixer track', (d) => {
       const tr = d.mixer.tracks[i];
       tr.volume = FADER_DEFAULT; tr.pan = 0; tr.stereoSep = 0; tr.polarity = false; tr.swapLR = false; tr.enabled = true;
+      // recording: no input, not armed, FL's defaults for the pickup, monitoring and input delay
+      delete tr.input; delete tr.armed; delete tr.pickup; delete tr.monitor; delete tr.inputDelay; delete tr.inputAdjust; delete tr.recordName;
       tr.eq.forEach((b) => { b.gain = 0; });
     }) },
   ];
@@ -176,7 +195,7 @@ const Strip = memo(function Strip({ track: t, selected, wide = false }: { track:
         <Fader length={150} thickness={wide ? 24 : 20} capLength={14} value={t.volume} defaultValue={FADER_DEFAULT}
           label={`${name} - Volume`} format={(v) => formatDb(faderToDb(v))} ticks={FADER_TICKS} centerLine={FADER_TICKS[2]}
           auto={{ scope: 'mixer', id: String(t.index), path: 'volume' }}
-          capColor={selected ? '#7fd45a' : undefined}
+          capColor={t.armed ? '#ff9a3c' : selected ? '#7fd45a' : undefined}
           onBegin={() => store.beginGesture('Mixer volume')} onEnd={() => store.endGesture()}
           onChange={(v) => A.setMixer(t.index, 'volume', v, 'Mixer volume')} />
       </div>
@@ -185,6 +204,14 @@ const Strip = memo(function Strip({ track: t, selected, wide = false }: { track:
         <button className={'mx-fx' + (hasFx ? (t.fxEnabled ? ' on' : ' off') : '')} disabled={!hasFx}
           onPointerDown={(e) => { e.stopPropagation(); if (hasFx) A.setMixer(t.index, 'fxEnabled', !t.fxEnabled, 'FX switch'); }}
           onPointerEnter={() => setHint(`${name} - effects ${hasFx ? (t.fxEnabled ? 'enabled' : 'bypassed') : '(no effects loaded)'}`)} onPointerLeave={clearHint}>FX</button>
+        {t.index >= 1 && t.index <= NUM_INSERTS && (
+          <button className={'mx-arm' + (t.armed ? ' on' : '')}
+            onPointerDown={(e) => { e.stopPropagation(); if (e.button === 0) { select(); armTrack(t.index, !t.armed); } }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); nameRecording(t); }}
+            onPointerEnter={() => setHint(`${name} - Arm disk recording${t.armed ? ' (armed)' : ''} - right-click to arm and name the recorded file`)} onPointerLeave={clearHint}>
+            <svg width="9" height="9" viewBox="0 0 9 9"><circle cx="4.5" cy="4.5" r="3.5" fill="currentColor" /></svg>
+          </button>
+        )}
       </div>
       <div className="mx-route">
         {t.index === CURRENT ? null : rs === 'self' ? (
@@ -304,12 +331,48 @@ function Inspector({ track: t }: { track: MixerTrack }) {
       <div className="mx-ins-head" style={{ ['--trk' as string]: t.color ?? MIXER_TRACK_COLOR }}>
         <span className="mx-ins-title">{name}</span>
       </div>
-      <div className="mx-ins-io"><span>IN</span><div className="combo">(none)</div></div>
+      <InputRow track={t} />
       <div className="mx-slots">
         {t.slots.map((s, i) => <FxSlotRow key={i} track={t} index={i} />)}
       </div>
       <EqPanel track={t} />
       <div className="mx-ins-io"><span>OUT</span><div className="combo">{t.index === 0 ? 'Main output' : '(none)'}</div></div>
+    </div>
+  );
+}
+
+/** The recording pickup, the audio input and the input delay compensation of the selected track. */
+function InputRow({ track: t }: { track: MixerTrack }) {
+  const name = mixerTrackName(t);
+  const insert = t.index >= 1 && t.index <= NUM_INSERTS;
+  const pick = t.pickup ?? 'ext';
+  const delay = t.inputDelay ?? 0;
+  const open = (e: React.PointerEvent, items: () => MenuItem[]) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const r = e.currentTarget.getBoundingClientRect();
+    openMenu(r.left, r.bottom, items());
+  };
+  return (
+    <div className="mx-ins-io mx-ins-in">
+      <span>IN</span>
+      {insert ? (
+        <>
+          <div className="combo mx-pick" onPointerDown={(e) => open(e, () => pickupMenu(t))}
+            onPointerEnter={() => setHint(`${name} - recording pickup (${pick.toUpperCase()}) and monitoring of the external input`)} onPointerLeave={clearHint}>
+            {PICKUP_CODE[pick]}
+          </div>
+          <div className="combo mx-in" onPointerDown={(e) => { if (e.altKey && e.button === 0) { e.preventDefault(); setTrackInput(t.index, undefined); } else open(e, () => inputMenu(t)); }}
+            onContextMenu={(e) => { e.preventDefault(); openMenu(e.clientX, e.clientY, inputMappingMenu(t)); }}
+            onPointerEnter={() => setHint(`${name} - audio input (Alt+click: none; right-click: auto map / reset mapping)`)} onPointerLeave={clearHint}>
+            {inputShort(t.input)}
+          </div>
+          <div className={'mx-idc' + (delay !== 0 ? ' on' : '')} onPointerDown={(e) => open(e, () => delayMenu(t))}
+            onPointerEnter={() => setHint(`${name} - input delay compensation: ${formatDelay(delay)}`)} onPointerLeave={clearHint}>
+            <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.2" /><path d="M6 3.4V6l1.8 1.2" fill="none" stroke="currentColor" strokeWidth="1.2" /></svg>
+          </div>
+        </>
+      ) : <div className="combo">(none)</div>}
     </div>
   );
 }

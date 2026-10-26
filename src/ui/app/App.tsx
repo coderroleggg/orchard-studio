@@ -16,6 +16,7 @@ import { AutomationWindows } from '../automation/AutomationEditor';
 import { saveProject, openProjectFile, newProject, exportWav, saveProjectAs, startAutosave } from '../../project/io';
 import { handleTypingKeyboard } from './typingKeyboard';
 import { findEmpty } from './TopBar';
+import { setRec, toggleRecord } from '../../audio/recording';
 import './app.css';
 
 export function App() {
@@ -118,6 +119,8 @@ function onGlobalKey(e: KeyboardEvent): void {
     host.setMetronome(store.ui.metronome);
     return;
   }
+  if (ctrl && (k === 'p' || k === 'P')) { e.preventDefault(); setRec({ countdown: !store.ui.rec.countdown }); return; }
+  if (ctrl && (k === 'i' || k === 'I')) { e.preventDefault(); setRec({ waitForInput: !store.ui.rec.waitForInput }); return; }
   if (ctrl && k === 'F4') { e.preventDefault(); findEmpty(false); return; }
   if (ctrl) return;
   // numpad: 1-9 select patterns, +/- next/previous
@@ -171,6 +174,6 @@ function onGlobalKey(e: KeyboardEvent): void {
       break;
     }
     case 'l': case 'L': A.toggleSongMode(); break;
-    case 'r': case 'R': A.setUi((u) => { u.recording = !u.recording; }); break;
+    case 'r': case 'R': void toggleRecord(); break;
   }
 }

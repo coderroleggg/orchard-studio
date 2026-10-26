@@ -19,7 +19,7 @@ export type ToEngine =
   | { t: 'channelRemove'; id: Id }
   | { t: 'pattern'; p: Pattern }
   | { t: 'patternRemove'; id: Id }
-  | { t: 'playlist'; tracks: PlaylistTrack[]; clips: Clip[]; repeatClips?: boolean }
+  | { t: 'playlist'; tracks: PlaylistTrack[]; clips: Clip[]; repeatClips?: boolean; autoCrossfades?: boolean }
   | { t: 'mixerTrack'; tr: MixerTrack }
   | { t: 'sample'; id: Id; data: Float32Array[]; sampleRate: number }
   | { t: 'sampleRemove'; id: Id }
@@ -45,6 +45,19 @@ export type ToEngine =
   | { t: 'links'; list: import('../model/links').ControllerLink[] }
   /** Mouse position (0..1, Y up) for the formula language's MouseX / MouseY. */
   | { t: 'mouse'; x: number; y: number }
+  /**
+   * Audio recording (engine/Recording.ts, docs/recording.md). The audio device latency in frames
+   * (the input and the output side), used by the automatic latency compensation.
+   */
+  | { t: 'recLatency'; input: number; output: number }
+  /** Start a recording session: record the armed mixer tracks, starting the transport as the options say. */
+  | { t: 'recStart'; o: import('../model/recording').RecStartOptions }
+  /** End the recording (the transport keeps playing). The takes are completed, including the latency compensation tail. */
+  | { t: 'recStop' }
+  /** Drop the recording: nothing is posted. */
+  | { t: 'recCancel' }
+  /** "Always show external input levels": mixer meters show an unmonitored input too. */
+  | { t: 'inputLevels'; on: boolean }
   | { t: 'ping'; id: number };
 
 export interface EngineStatus {
@@ -76,4 +89,18 @@ export type FromEngine =
    */
   | { t: 'fxState'; items: [Id, string, unknown][] }
   | { t: 'pong'; id: number }
+  /** A recording session changed state (countdown, waiting for input, recording, idle). */
+  | { t: 'recState'; state: import('../model/recording').RecState; take: number; tick0: number; frame: number }
+  /**
+   * Recorded audio of one armed track: `L` / `R` hold the frames `off` ... `off + L.length` of
+   * take `take` (the takes of all tracks have the same length and timeline start).
+   */
+  | { t: 'recData'; take: number; track: number; off: number; L: Float32Array; R: Float32Array }
+  /**
+   * A take of a track is complete: `frames` long, its first frame at transport position `tick0`
+   * (ticks, the latency compensation already applied to the audio).
+   */
+  | { t: 'recTake'; take: number; track: number; frames: number; tick0: number }
+  /** The recording session ended (after the last 'recTake'). */
+  | { t: 'recDone'; cancelled: boolean }
   | { t: 'log'; msg: string };

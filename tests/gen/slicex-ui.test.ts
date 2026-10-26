@@ -364,6 +364,30 @@ describe('Slicex menus', async () => {
     expect(deckOf(paramsNow(slot), 0).regions.every((r) => r.aArt === 0 && r.fArt === 0)).toBe(true);
   });
 
+  it('sends the selection to the Playlist as an audio clip and to the selected channel', () => {
+    const slot = setup();
+    loadPool(slot, 0, 'sx-menu');
+    const clips0 = store.project.playlist.clips.length;
+    // no selection: the deck's own pool sample
+    C.setSel(slot, null);
+    C.sendToPlaylist(slot);
+    expect(store.project.playlist.clips.length).toBe(clips0 + 1);
+    expect(store.undoLabel()).toBe('Send to playlist as audio clip');
+    const c1 = store.project.channels.find((c) => c.id === store.project.playlist.clips[clips0].channelId)!;
+    expect(c1.kind).toBe('audioclip');
+    expect(c1.sampler.sampleId).toBe('sx-menu');
+    // a selection: a new pool sample of that range
+    C.setSel(slot, [1000, 5999]);
+    C.sendToPlaylist(slot);
+    const c2 = store.project.channels.find((c) => c.id === store.project.playlist.clips[clips0 + 1].channelId)!;
+    expect(c2.sampler.sampleId).not.toBe('sx-menu');
+    expect(store.project.samples[c2.sampler.sampleId!].frames).toBe(5000);
+    // the Tools menu lists FL's Sequencing items and Shift+C is the shortcut
+    const ctx = { slotId: slot, ui: { ...C.DECK_UI }, setUi: () => {} };
+    expect(find(M.toolsMenu(ctx) as Item[], 'Send to Playlist as audio clip')).toBeTruthy();
+    expect(find(M.toolsMenu(ctx) as Item[], 'Send to selected channel')).toBeTruthy();
+  });
+
   it('renders the sample properties dialog', () => {
     const slot = setup();
     loadPool(slot, 0, 'sx-menu');

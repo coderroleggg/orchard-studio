@@ -501,6 +501,7 @@ function SlicexEditor() {
     else if (k === 'Home') C.zoomFull(slotId);
     else if (k === 'End') C.zoomSel(slotId);
     else if (k === 'Enter') C.setDeck(slotId, 1 - v.deck);
+    else if (shift && !ctrl && !alt && lk === 'c') C.sendToPlaylist(slotId);
     else if (!ctrl && !alt && !shift) {
       switch (lk) {
         case 'm': C.addMarker(slotId, ui); break;

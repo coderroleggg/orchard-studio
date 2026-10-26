@@ -238,3 +238,8 @@
 
 .pat-swatch { width: 8px; height: 14px; border-radius: 2px; flex: none; }
 .pat-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* recording: the Record button while a session runs */
+.tbtn.rec.live.recording { animation: rec-pulse 1.1s ease-in-out infinite; }
+.tbtn.rec.live.countdown, .tbtn.rec.live.waiting { animation: rec-pulse 0.5s ease-in-out infinite; }
+@keyframes rec-pulse { 50% { background: #7a3530; } }

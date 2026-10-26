@@ -4,6 +4,7 @@
 
 import { host, store } from '../../../../store';
 import * as A from '../../../../store/actions';
+import * as AC from '../../../../store/audioClipActions';
 import { addRaw, decodeFile, storeUserSample } from '../../../../audio/samples';
 import { uid } from '../../../../model/defaults';
 import { flashHint } from '../../../hint';
@@ -739,16 +740,14 @@ export function sendToChannel(api: EdApi): void {
 }
 
 /**
- * Send to playlist as audio clip: Orchard's playlist has no audio clips, so
- * the selection becomes a new Sampler channel (FL's audio clips are channels too).
+ * Send to playlist as audio clip: the selection becomes an Audio Clip (a new
+ * Audio Clip channel and a clip of its length in the Playlist, at the time
+ * selection or the playhead).
  */
 export function sendToPlaylist(api: EdApi): void {
   const c = cur(api.slotId);
   if (!needAudio(c)) return;
-  const info = newPoolSample(c, fileBase(c));
-  store.update('Send to playlist', (d) => { d.samples[info.id] = info; });
-  A.addChannel(info.name, info.id);
-  flashHint(`Edison: new channel "${info.name}"`);
+  AC.sendToPlaylist(newPoolSample(c, fileBase(c)));
 }
 
 /** A WAV file of the selection for HTML drag and drop (drag / copy sample button). */

@@ -5,10 +5,13 @@ import workletUrl from '../engine/worklet.ts?worker&url';
 import type { Channel, Project, Id, MixerTrack } from '../model/types';
 import type { EngineGlobals, FromEngine, ToEngine } from '../engine/protocol';
 import { prepareSample, onSamplesChanged, isPrepared, forgetProcessedKey, getRaw } from './samples';
+import { isAudioClipPrepared, prepareAudioClipSample } from './audioClipSample';
+import { followsTempo, usesStretcher } from '../model/audioclip';
 import { slotSampleRefs } from './engineSamples';
 import { allFx } from '../model/fx/hosted';
 import { allGens, channelOfSlot } from '../model/gen/ids';
 import { live, emitLive } from './live';
+import { AudioInput } from './AudioInput';
 import { getPath, setPath, targetKey, type AutomationTarget } from '../model/automation';
 import type { FxMonitor } from '../engine/effects/types';
 import { store } from '../store';
@@ -39,9 +42,17 @@ export class AudioHost {
   private autoTimer = 0;
   private lastStatus = performance.now();
   onStatus: (() => void) | null = null;
+  /** The audio input device (Options > Audio settings): its stream plays into the engine's worklet node. */
+  readonly input = new AudioInput();
+  private inputSrc: MediaStreamAudioSourceNode | null = null;
+  /** Set by the recording controller (audio/recording.ts): asked before Play; true when it started the transport itself (a recording). */
+  beforePlay: (() => Promise<boolean>) | null = null;
+  /** The engine's recording messages (audio/Recorder.ts). */
+  onRecMessage: ((m: FromEngine) => void) | null = null;
 
   constructor(getProject: () => Project) {
     this.getProject = getProject;
+    this.input.onStream = (stream, channels) => this.connectInput(stream, channels);
     onSamplesChanged(() => {
       // a sample arrived (e.g. user file decoded): re-push channels and effects that use it
       const p = this.getProject();
@@ -84,9 +95,13 @@ export class AudioHost {
       this.ctx = ctx;
       await ctx.audioWorklet.addModule(workletUrl);
       const node = new AudioWorkletNode(ctx, 'orchard-engine', {
-        numberOfInputs: 0,
+        // the audio input device (when one is open) arrives as it is: every channel, none mixed into another
+        numberOfInputs: 1,
         numberOfOutputs: 1,
         outputChannelCount: [2],
+        channelCount: 2,
+        channelCountMode: 'explicit',
+        channelInterpretation: 'discrete',
       });
       node.port.onmessage = (e) => this.onMessage(e.data as FromEngine);
       node.connect(ctx.destination);
@@ -100,8 +115,54 @@ export class AudioHost {
       live.latencySec = (ctx.baseLatency || 0) + ((ctx as AudioContext & { outputLatency?: number }).outputLatency || 0);
       this.fullSync(this.getProject());
       if (this.queue.length) { node.port.postMessage(this.queue); this.queue = []; }
+      ctx.addEventListener('statechange', () => this.updateLatency());
+      // the audio input: a device chosen earlier opens by itself when the browser already allows it
+      const stream = this.input.currentStream;
+      if (stream) this.connectInput(stream, this.input.state.channels);
+      else this.updateLatency();
+      void this.input.init();
     })();
     return this.starting;
+  }
+
+  /** Connect the audio input device's stream to the engine (null: disconnect). */
+  private connectInput(stream: MediaStream | null, channels: number): void {
+    if (this.inputSrc) {
+      try { this.inputSrc.disconnect(); } catch { /* already gone */ }
+      this.inputSrc = null;
+    }
+    const ctx = this.ctx, node = this.node;
+    if (!ctx || !node) return; // connected when the context starts
+    if (stream) {
+      node.channelCount = Math.max(1, channels);
+      const src = ctx.createMediaStreamSource(stream);
+      src.connect(node);
+      this.inputSrc = src;
+    }
+    this.updateLatency();
+  }
+
+  /**
+   * Tell the engine the latency of the audio device in frames: the output side is the context's base
+   * latency plus the output latency the browser reports, the input side what the input stream reports.
+   */
+  updateLatency(): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    live.latencySec = (ctx.baseLatency || 0) + ((ctx as AudioContext & { outputLatency?: number }).outputLatency || 0);
+    this.send({ t: 'recLatency', input: this.inputLatencyFrames(), output: this.outputLatencyFrames() });
+  }
+
+  /** Latency of the audio output in frames: the context's base latency plus what the browser reports for the device. */
+  outputLatencyFrames(): number {
+    const ctx = this.ctx;
+    if (!ctx) return 0;
+    return Math.round(((ctx.baseLatency || 0) + ((ctx as AudioContext & { outputLatency?: number }).outputLatency || 0)) * ctx.sampleRate);
+  }
+
+  /** Latency of the audio input in frames, as the browser reports it (0: unknown). */
+  inputLatencyFrames(): number {
+    return Math.round(this.input.state.latencySec * this.sampleRate);
   }
 
   async resume(): Promise<void> {
@@ -149,8 +210,11 @@ export class AudioHost {
       return;
     }
     let key: string | null = null;
+    // an Audio Clip channel also plays its stretched sample (stretch modes other than Resample: src/audio/audioClipSample.ts)
+    const audioClip = c.kind === 'audioclip';
+    const tempo = this.getProject().tempo;
     if (s.sampleId) {
-      if (!immediate && prevKey && !isPrepared(s.sampleId, s, rate)) {
+      if (!immediate && prevKey && !(audioClip ? isAudioClipPrepared(c, tempo, rate) : isPrepared(s.sampleId, s, rate))) {
         // defer the expensive re-render; keep playing the previous buffer meanwhile
         window.clearTimeout(this.pending.get(c.id));
         this.pending.set(c.id, window.setTimeout(() => {
@@ -161,7 +225,7 @@ export class AudioHost {
         this.send({ t: 'channel', c: { ...c, sampler: { ...s, sampleId: prevKey } } });
         return;
       }
-      const prep = prepareSample(s.sampleId, s, rate);
+      const prep = audioClip ? prepareAudioClipSample(c, tempo, rate) : prepareSample(s.sampleId, s, rate);
       if (prep) {
         key = prep.key;
         if (!this.sentSamples.has(key)) {
@@ -206,6 +270,7 @@ export class AudioHost {
   fullSync(p: Project): void {
     if (this.fxListeners.size) this.send({ t: 'watchFx', ids: [...this.fxListeners.keys()] });
     this.send({ t: 'globals', g: this.globalsOf(p) });
+    this.send({ t: 'inputLevels', on: store.ui.rec.showInputLevels });
     this.fxSamples.clear();
     this.pushFxSamples(p);
     for (const tr of p.mixer.tracks) this.send({ t: 'mixerTrack', tr });
@@ -213,7 +278,7 @@ export class AudioHost {
     for (const pat of p.patterns) this.send({ t: 'pattern', p: pat });
     this.send({ t: 'automation', list: p.automation ?? [], init: p.initControls ?? [] });
     this.send({ t: 'links', list: p.links ?? [] });
-    this.send({ t: 'playlist', tracks: p.playlist.tracks, clips: p.playlist.clips, repeatClips: !!p.repeatClips });
+    this.send({ t: 'playlist', tracks: p.playlist.tracks, clips: p.playlist.clips, repeatClips: !!p.repeatClips, autoCrossfades: !!p.playlist.autoCrossfades });
     this.send({ t: 'mode', song: p.songMode, patternId: p.currentPatternId });
     this.updateWantMouse(p);
     this.lastProject = p;
@@ -251,6 +316,12 @@ export class AudioHost {
         if (k) this.releaseKey(k);
       }
     }
+    // a stretched Audio Clip sample that follows the tempo (TIME set) is rendered again for the new tempo
+    if (prev.tempo !== next.tempo) {
+      for (const c of next.channels) {
+        if (c.kind === 'audioclip' && usesStretcher(c.sampler) && followsTempo(c.sampler) && prev.channels.find((x) => x.id === c.id) === c) this.pushChannel(c);
+      }
+    }
     if (prev.patterns !== next.patterns) {
       const prevById = new Map(prev.patterns.map((p) => [p.id, p]));
       for (const p of next.patterns) {
@@ -259,8 +330,8 @@ export class AudioHost {
       }
       for (const id of prevById.keys()) this.send({ t: 'patternRemove', id });
     }
-    if (prev.playlist.clips !== next.playlist.clips || prev.playlist.tracks !== next.playlist.tracks || prev.repeatClips !== next.repeatClips) {
-      this.send({ t: 'playlist', tracks: next.playlist.tracks, clips: next.playlist.clips, repeatClips: !!next.repeatClips });
+    if (prev.playlist.clips !== next.playlist.clips || prev.playlist.tracks !== next.playlist.tracks || prev.repeatClips !== next.repeatClips || prev.playlist.autoCrossfades !== next.playlist.autoCrossfades) {
+      this.send({ t: 'playlist', tracks: next.playlist.tracks, clips: next.playlist.clips, repeatClips: !!next.repeatClips, autoCrossfades: !!next.playlist.autoCrossfades });
     }
     if (prev.mixer !== next.mixer || prev.samples !== next.samples || prev.channels !== next.channels) this.pushFxSamples(next);
     if (prev.mixer !== next.mixer) {
@@ -282,6 +353,8 @@ export class AudioHost {
     await this.resume();
     this.playStartTick = live.playing ? this.playStartTick : Math.max(0, live.anchorTick);
     if (!live.playing) this.autoReleased.clear(); // the engine hands taken-over controls back to their clips
+    // Record is on: the recording controller starts the transport (count-in, wait for input...)
+    if (this.beforePlay && !live.playing && (await this.beforePlay())) return;
     this.send({ t: 'play' });
     live.playing = true;
     live.anchorTime = performance.now();
@@ -290,7 +363,8 @@ export class AudioHost {
 
   /** Stop: return to where playback started; when already stopped, go to the song start. */
   stop(): void {
-    const target = live.playing && this.rememberSeekTime ? this.playStartTick : 0;
+    // a count-in or a wait for input is stopped like playback
+    const target = (live.playing || live.rec.state !== 'idle') && this.rememberSeekTime ? this.playStartTick : 0;
     this.send({ t: 'pause' });
     this.send({ t: 'seek', tick: target });
     live.playing = false;
@@ -308,7 +382,7 @@ export class AudioHost {
   }
 
   async togglePause(): Promise<void> {
-    if (live.playing) this.pause();
+    if (live.playing || live.rec.state !== 'idle') this.pause();
     else await this.play();
   }
 
@@ -525,6 +599,12 @@ export class AudioHost {
         this.spectrumListeners.get(m.slotId)?.(m.data, m.sampleRate);
         break;
       }
+      case 'recState':
+      case 'recData':
+      case 'recTake':
+      case 'recDone':
+        this.onRecMessage?.(m);
+        break;
       case 'log':
         console.log('[engine]', m.msg);
         break;

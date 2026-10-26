@@ -14,6 +14,7 @@ import type { UiState } from '../../store/ui';
 import type { Channel, Id } from '../../model/types';
 import { CHANNEL_VOLUME_DEFAULT, channelVolumeToDb, formatDb, formatPan } from '../../model/scales';
 import { defaultSampler } from '../../model/sampler';
+import { AUDIO_CLIP_VOLUME_DEFAULT } from '../../model/audioclip';
 import { NUM_INSERTS, mixerTrackName } from '../../model/defaults';
 import { Window } from '../windows/Window';
 import { Led } from '../widgets/Led';
@@ -78,8 +79,9 @@ const ChannelSettingsWindow = memo(function ChannelSettingsWindow({ channelId }:
   const plugin = ch?.kind === 'plugin' && ch.plugin ? ch.plugin : null;
   const gdef = plugin ? genDef(plugin.id) : undefined;
   const layer = ch?.kind === 'layer';
-  // instrument channels: PLUGIN, INS (when FL shows it for the plugin), MISC; a layer: MISC only
-  const tabList = plugin ? [TAB_PLUGIN, ...(gdef?.ins ? [TAB_INS] : []), TAB_MISC] : layer ? [TAB_MISC] : TABS;
+  const audioClip = ch?.kind === 'audioclip';
+  // instrument channels: PLUGIN, INS (when FL shows it for the plugin), MISC; a layer: MISC only; an Audio Clip: SMP only
+  const tabList = plugin ? [TAB_PLUGIN, ...(gdef?.ins ? [TAB_INS] : []), TAB_MISC] : layer ? [TAB_MISC] : audioClip ? [TAB_SMP] : TABS;
   const [tabRaw, setTab] = useViewState<TabId>(channelId, 'tab', plugin ? 'plugin' : layer ? 'misc' : 'smp');
   const tab = tabList.some((t) => t.id === tabRaw) ? tabRaw : tabList[0].id;
   const winId = 'chan:' + channelId;
@@ -139,6 +141,17 @@ const ChannelSettingsWindow = memo(function ChannelSettingsWindow({ channelId }:
       </Window>
     );
   }
+  if (audioClip) {
+    // FL's Audio Clip settings: the header (ON, PAN, VOL, PITCH, TRACK) above the sample settings; no notes, so no INS / MISC
+    return (
+      <Window id={winId} title={ch.name} minW={400} minH={160} menu={() => windowMenu(ch)}>
+        <div className="cs-root">
+          <Header ch={ch} tab="smp" setTab={setTab} tabs={false} tabList={tabList} />
+          <div className="cs-body"><SmpTab ch={ch} /></div>
+        </div>
+      </Window>
+    );
+  }
   return (
     <Window id={winId} title={ch.name} minW={400} minH={160} menu={() => windowMenu(ch)}>
       <div className="cs-root">
@@ -186,7 +199,7 @@ function Header({ ch, tab, setTab, tabs = true, tabList = TABS, noTrack = false 
         </Cell>
         <KnobCell cap="PAN" label="Panning" auto={chAuto(ch.id, 'pan')} value={ch.pan} min={-1} max={1} bipolar def={0} format={formatPan} undo="Channel panning"
           set={(v) => A.setChannel(ch.id, 'pan', v, 'Channel panning')} />
-        <KnobCell cap="VOL" label="Volume" auto={chAuto(ch.id, 'volume')} value={ch.volume} def={CHANNEL_VOLUME_DEFAULT} undo="Channel volume"
+        <KnobCell cap="VOL" label="Volume" auto={chAuto(ch.id, 'volume')} value={ch.volume} def={ch.kind === 'audioclip' ? AUDIO_CLIP_VOLUME_DEFAULT : CHANNEL_VOLUME_DEFAULT} undo="Channel volume"
           format={(v) => `${Math.round(v * 100)}% (${formatDb(channelVolumeToDb(v))})`}
           set={(v) => A.setChannel(ch.id, 'volume', v, 'Channel volume')} />
         <KnobCell cap="PITCH" label="Pitch" auto={chAuto(ch.id, 'pitch')} value={ch.pitch} min={-1} max={1} bipolar def={0} undo="Channel pitch"

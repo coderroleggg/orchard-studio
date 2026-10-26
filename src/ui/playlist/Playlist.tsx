@@ -1,10 +1,10 @@
 // Playlist (arrangement): track headers, timeline ruler with time selection,
 // pattern clips with note previews, tools, snap, zoom and playhead.
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { store, host, useProject, useUi } from '../../store';
 import * as A from '../../store/actions';
-import type { Clip, Pattern, PlaylistTrack } from '../../model/types';
+import type { Channel, Clip, Pattern, PlaylistTrack } from '../../model/types';
 import type { ToolId } from '../../store/ui';
 import { Window } from '../windows/Window';
 import { Led } from '../widgets/Led';
@@ -14,6 +14,7 @@ import { ticksPerBar, ticksPerStep, type TimeBase } from '../../model/timing';
 import { uid } from '../../model/defaults';
 import { SNAP_OPTIONS, snapLabel, snapTicks, snapPos, snapPlace } from '../snap';
 import { currentTick, live } from '../../audio/live';
+import { drawRecordingOverlay } from './recordingOverlay';
 import {
   IconPencil, IconBrush, IconEraser, IconMute, IconSlip, IconSlice, IconSelect, IconZoom, IconSpeaker, IconMagnet, IconArrowDown,
 } from '../widgets/Icons';
@@ -23,12 +24,19 @@ import {
   addPoint, autoById, deletePoint, dragTension, lastTension, movePoint, pointHint, pointMenu, randomColor, resetTension, rightAltDown,
   setTension, stateItems, stepDraw, tensionHint, toolItems,
 } from '../automation/autoEdit';
-import { IconAutomation } from '../widgets/Icons';
+import { IconAutomation, IconWave } from '../widgets/Icons';
+import { onSamplesChanged, samplesVersion } from '../../audio/samples';
+import { CLIP_GAIN_MAX_DB, CLIP_GAIN_MIN_DB, clampClipGain, formatClipGain } from '../../model/audioclip';
+import { drawAudioClip, effectiveFades, mapTicks, sourceMap, zoneAt, type AudioZone } from './audioClip';
+import * as AC from '../../store/audioClipActions';
+import { importAudioClipFiles } from '../../project/io';
 import './playlist.css';
 
 const HEAD_W = 120;
 const PICKER_W = 130;
 let allowLeftResize = false; // Edit > Allow resizing from the left (Ctrl+Alt+Home)
+/** Edit > Cut / Copy / Paste: the copied clips and the start of the first one. */
+let clipClipboard: { clips: Clip[]; first: number } | null = null;
 const RULER_H = 22;
 
 const TOOLS: { id: ToolId; icon: React.ReactNode; label: string; key: string }[] = [
@@ -73,6 +81,10 @@ export function Playlist() {
   const current = useProject((p) => p.currentPatternId);
   const curPat = patterns.find((p) => p.id === current);
   const curAuto = autoSource ? automation.find((a) => a.id === autoSource) : undefined;
+  const audioSource = useUi((u) => u.playlist.audioSource);
+  const channelsAll = useProject((p) => p.channels);
+  const audioChans = channelsAll.filter((c) => c.kind === 'audioclip');
+  const curAudio = audioSource ? audioChans.find((c) => c.id === audioSource) : undefined;
   const toolbar = (
     <div className="pl-toolbar">
       <div className="combo pl-snap" onPointerDown={(e) => {
@@ -100,14 +112,20 @@ export function Playlist() {
       <div className="combo pl-pat" onPointerDown={(e) => {
         e.stopPropagation();
         const r = e.currentTarget.getBoundingClientRect();
-        const items: MenuItem[] = patterns.map((p, i) => ({ label: p.name, checked: !curAuto && p.id === current, radio: true, onClick: () => { A.selectPattern(p.id); A.setUi((u) => { u.playlist.autoSource = null; }); }, hint: String(i) }));
+        const items: MenuItem[] = patterns.map((p, i) => ({ label: p.name, checked: !curAuto && !curAudio && p.id === current, radio: true, onClick: () => { A.selectPattern(p.id); A.setUi((u) => { u.playlist.autoSource = null; u.playlist.audioSource = null; }); }, hint: String(i) }));
         if (automation.length) {
           items.push({ separator: true }, { header: true, label: 'Automation clips' });
-          for (const a of automation) items.push({ label: a.name, checked: curAuto?.id === a.id, radio: true, onClick: () => A.setUi((u) => { u.playlist.autoSource = a.id; }) });
+          for (const a of automation) items.push({ label: a.name, checked: curAuto?.id === a.id, radio: true, onClick: () => A.setUi((u) => { u.playlist.autoSource = a.id; u.playlist.audioSource = null; }) });
+        }
+        if (audioChans.length) {
+          items.push({ separator: true }, { header: true, label: 'Audio clips' });
+          for (const a of audioChans) items.push({ label: a.name, checked: curAudio?.id === a.id, radio: true, onClick: () => A.setUi((u) => { u.playlist.audioSource = a.id; u.playlist.autoSource = null; }) });
         }
         openMenu(r.left, r.bottom, items, { minWidth: 160 });
-      }} onPointerEnter={() => setHint('Clip source - the pattern or automation clip to draw with')} onPointerLeave={clearHint}>
-        {curAuto ? (
+      }} onPointerEnter={() => setHint('Clip source - the pattern, automation clip or audio clip to draw with')} onPointerLeave={clearHint}>
+        {curAudio ? (
+          <><span className="pl-src-auto"><IconWave size={11} /></span>{curAudio.name}</>
+        ) : curAuto ? (
           <><span className="pl-src-auto"><IconAutomation size={11} /></span>{curAuto.name}</>
         ) : (
           <><span className="pat-swatch" style={{ background: curPat ? A.patternColor(curPat, patterns.indexOf(curPat)) : undefined }} />{curPat?.name ?? '-'}</>
@@ -123,6 +141,19 @@ export function Playlist() {
         { separator: true },
         { label: 'Picker panel', shortcut: 'Alt+P', checked: store.ui.playlist.picker, onClick: () => A.setUi((u) => { u.playlist.picker = !u.playlist.picker; }) },
         { label: 'Repeat patterns in long clips', checked: !!store.project.repeatClips, onClick: () => store.update('Repeat clips', (d) => { d.repeatClips = !d.repeatClips; }) },
+        { separator: true },
+        { label: 'Cut', shortcut: 'Ctrl+X', disabled: !store.ui.playlist.selected.length, onClick: () => copySelectedClips(true) },
+        { label: 'Copy', shortcut: 'Ctrl+C', disabled: !store.ui.playlist.selected.length, onClick: () => copySelectedClips(false) },
+        { label: 'Paste', shortcut: 'Ctrl+V', disabled: !clipClipboard, onClick: () => pasteClips() },
+        { separator: true },
+        { header: true, label: 'Audio clips' },
+        { label: 'Show fade editing controls', shortcut: 'Shift+F', checked: store.ui.playlist.showFades, onClick: () => A.setUi((u) => { u.playlist.showFades = !u.playlist.showFades; }) },
+        { label: 'Automatic crossfades (current project)', checked: !!store.project.playlist.autoCrossfades, onClick: () => store.update('Automatic crossfades', (d) => { d.playlist.autoCrossfades = !d.playlist.autoCrossfades; }) },
+        { label: 'Stretch audio when resizing audio clips', shortcut: 'Shift+M', checked: store.ui.playlist.stretchOnResize, onClick: () => A.setUi((u) => { u.playlist.stretchOnResize = !u.playlist.stretchOnResize; }) },
+        { label: 'Pitch selected audio clips one semitone up', shortcut: '8', onClick: () => AC.pitchAudioClips(store.ui.playlist.selected, 100) },
+        { label: 'Pitch selected audio clips one semitone down', shortcut: '7', onClick: () => AC.pitchAudioClips(store.ui.playlist.selected, -100) },
+        { label: 'Reverse selected audio clips', shortcut: '9', onClick: () => AC.reverseAudioClips(store.ui.playlist.selected) },
+        { label: `Delete unused audio clips (${AC.unusedAudioClipChannels().length})`, disabled: !AC.unusedAudioClipChannels().length, onClick: () => { const n = AC.deleteUnusedAudioClips(); flashHint(`${n} unused audio clip${n === 1 ? '' : 's'} deleted`); } },
       ]}>
       <PlaylistBody />
     </Window>
@@ -130,7 +161,11 @@ export function Playlist() {
 }
 
 interface DragState {
-  kind: 'move' | 'resize-r' | 'resize-l' | 'marquee' | 'paint' | 'erase' | 'mute' | 'slice' | 'zoom' | 'scrub' | 'pan' | 'slip' | 'loop' | 'seek' | 'autoPoint' | 'autoTension' | 'autoStep';
+  kind: 'move' | 'resize-r' | 'resize-l' | 'marquee' | 'paint' | 'erase' | 'mute' | 'slice' | 'zoom' | 'scrub' | 'pan' | 'slip' | 'loop' | 'seek' | 'autoPoint' | 'autoTension' | 'autoStep' | AudioZone;
+  /** Audio clip handle drags: the value the handle started from (fade ticks / gain dB). */
+  val0?: number;
+  /** Stretch on resize (Shift+M): the audio clip channel being re-timed and its duration in beats when the drag began. */
+  stretch0?: { channelId: string; beats: number };
   autoId?: string;
   autoPos0?: number;
   autoVal0?: number;
@@ -159,6 +194,13 @@ function PlaylistBody() {
   const automation = useProject((p) => p.automation);
   const autoMap = new Map<string, AutomationChannel>(automation.map((a) => [a.id, a]));
   const [autoHover, setAutoHover] = useState<{ clipId: string; hit: EnvHit } | null>(null);
+  // audio clips: their channels, the tempo (the waveform follows the stretch), and the audio that arrives later
+  const channels = useProject((p) => p.channels);
+  const tempo = useProject((p) => p.tempo);
+  const samplesV = useSyncExternalStore(onSamplesChanged, samplesVersion);
+  const chById = new Map<string, Channel>(channels.filter((c) => c.kind === 'audioclip').map((c) => [c.id, c]));
+  const autoXf = useProject((p) => !!p.playlist.autoCrossfades);
+  const [audioHover, setAudioHover] = useState<{ clipId: string; zone: AudioZone } | null>(null);
   const patterns = useProject((p) => p.patterns);
   const currentPattern = useProject((p) => p.currentPatternId);
   const ppq = useProject((p) => p.ppq);
@@ -238,6 +280,7 @@ function PlaylistBody() {
     // clips
     g.font = `10px ${getComputedStyle(document.body).fontFamily}`;
     g.textBaseline = 'middle';
+    const fades = autoXf ? effectiveFades(clips, tracks) : null;
     for (const c of clips) {
       const x = xOf(c.start), w = c.length * pl.pxPerTick, y = yOf(c.track);
       if (x > W || x + w < 0 || y > H || y + th < 0) continue;
@@ -249,12 +292,24 @@ function PlaylistBody() {
         }
         continue;
       }
+      if (c.kind === 'audio') {
+        const ch = c.channelId ? chById.get(c.channelId) : undefined;
+        if (ch) {
+          drawAudioClip(g, {
+            c, ch, map: sourceMap(ch, tempo), name: ch.name, color: ch.color, x, y, w, h: th, ppt: pl.pxPerTick, tempo, ppq,
+            visL: 0, visR: W, selected: selected.has(c.id), muted: c.muted || !ch.enabled || !tracks[c.track]?.enabled,
+            showFades: pl.showFades, hover: audioHover?.clipId === c.id ? audioHover.zone : null,
+            fadeIn: fades?.get(c.id)?.fadeIn, fadeOut: fades?.get(c.id)?.fadeOut,
+          });
+        }
+        continue;
+      }
       const pe = patById.get(c.patternId);
       if (!pe) continue;
       const col = A.patternColor(pe.p, pe.i);
       drawClip(g, c, pe.p, col, x, y, w, th, selected.has(c.id), c.muted || !tracks[c.track]?.enabled, t);
     }
-  }, [W, H, clips, tracks, patterns, automation, autoHover, pl.pxPerTick, pl.scrollTick, pl.scrollTrack, th, pl.selected, gT, barT, loop, ppq]);
+  }, [W, H, clips, tracks, patterns, automation, autoHover, pl.pxPerTick, pl.scrollTick, pl.scrollTrack, th, pl.selected, gT, barT, loop, ppq, channels, tempo, samplesV, audioHover, pl.showFades, autoXf]);
 
   // ruler
   useEffect(() => {
@@ -307,6 +362,7 @@ function PlaylistBody() {
             g.fillRect(Math.round(x), 0, 1.5, H + RULER_H);
             g.beginPath(); g.moveTo(x - 5, 0); g.lineTo(x + 6, 0); g.lineTo(x + 0.75, 7); g.fill();
           }
+          drawRecordingOverlay(g, W, H + RULER_H, RULER_H, xOf, yOf, th); // recording markers and the stretch being recorded
         }
       }
       raf = requestAnimationFrame(draw);
@@ -316,7 +372,7 @@ function PlaylistBody() {
   });
 
   // ------------------------------------------------------------ interaction
-  const hit = (x: number, y: number): { clip: Clip; zone: 'body' | 'left' | 'right' | 'auto' | 'menu' } | null => {
+  const hit = (x: number, y: number): { clip: Clip; zone: 'body' | 'left' | 'right' | 'auto' | 'menu' | AudioZone } | null => {
     const tick = tickOf(x), tr = trackOf(y);
     for (let i = clips.length - 1; i >= 0; i--) {
       const c = clips[i];
@@ -326,9 +382,15 @@ function PlaylistBody() {
       if (x1 - x0 >= CLIP_MENU_MIN_W && x - x0 >= 0 && x - x0 < CLIP_MENU_W && y - yOf(c.track) <= headH) return { clip: c, zone: 'menu' };
       // automation clips are moved / resized by their title bar only; the body edits the envelope
       if (c.kind === 'automation' && y - yOf(c.track) > AUTO_TITLE_H) return { clip: c, zone: 'auto' };
+      // audio clips: the fade and gain handles
+      if (c.kind === 'audio' && pl.showFades) {
+        const z = zoneAt(c, x0, yOf(c.track), x1 - x0, th, pl.pxPerTick, x, y);
+        if (z) return { clip: c, zone: z };
+      }
       const edge = Math.min(6, (x1 - x0) / 3);
       if (x1 - x <= edge) return { clip: c, zone: 'right' };
-      if (allowLeftResize && x - x0 <= edge) return { clip: c, zone: 'left' };
+      // audio clips are trimmed from the left whenever there is sample to the left of their window
+      if ((allowLeftResize || c.kind === 'audio') && x - x0 <= edge) return { clip: c, zone: 'left' };
       return { clip: c, zone: 'body' };
     }
     return null;
@@ -427,11 +489,81 @@ function PlaylistBody() {
     if (moved) setHint(pointHint(moved, i, t));
   };
 
+  /**
+   * FL's audio clip menu: Preview, Select source channel, Channel settings, Rename and color, Make unique, Select all
+   * similar clips, Delete, Chop, Sample and Automate (items FL has that need parts Orchard does not have are disabled).
+   */
+  const audioClipMenu = (c: Clip, ch: Channel, similar: () => void, del: () => void): MenuItem[] => {
+    const p = store.project;
+    const sel = pl.selected.includes(c.id) ? pl.selected : [c.id];
+    const ids = p.playlist.clips.filter((k) => k.kind === 'audio' && sel.includes(k.id)).map((k) => k.id);
+    const range = { start: c.start, end: c.start + c.length };
+    const bar = ticksPerBar(t);
+    const chop = (label: string, unit: number): MenuItem => ({ label, onClick: () => AC.chopClips(ids, unit) });
+    const palette: [string, string][] = [['Teal', '#4f7a86'], ['Blue', '#6b7f9a'], ['Violet', '#7a6f9a'], ['Rose', '#9a6f7c'], ['Olive', '#9a8a5f'], ['Green', '#5f8f6f'], ['Slate', '#5c656a'], ['Copper', '#a07050']];
+    const automate = (path: 'volume' | 'pan', label: string): MenuItem => ({
+      label: `${label} with...`,
+      hint: 'Create an automation clip over this audio clip',
+      onClick: () => A.createAutomationClip({ scope: 'channel', id: ch.id, path, min: path === 'pan' ? -1 : 0, max: 1, label }, range),
+    });
+    return [
+      { header: true, label: ch.name },
+      { label: 'Preview', shortcut: 'Alt+right-click', onClick: () => host.preview(ch.id, 60, 100, 100) },
+      { label: 'Select source channel', submenu: p.channels.filter((k) => k.kind === 'audioclip').map((k) => ({
+        label: k.name, checked: k.id === ch.id, radio: true, onClick: () => AC.setAudioClipSource(ids, k.id),
+      })) },
+      { label: 'Channel settings', onClick: () => A.openChannelSettings(ch.id) },
+      { separator: true },
+      { label: 'Muted', checked: c.muted, onClick: () => A.updateClips(c.muted ? 'Unmute clips' : 'Mute clips', (cs) => { for (const k of cs) if (sel.includes(k.id)) k.muted = !c.muted; }) },
+      { label: 'Rename and color...', onClick: () => { const n = prompt('Audio clip name', ch.name); if (n !== null) AC.renameAudioClipChannel(ch.id, n); } },
+      { label: 'Color', submenu: [
+        ...palette.map(([name, col]): MenuItem => ({ label: name, onClick: () => AC.renameAudioClipChannel(ch.id, '', col) })),
+        { label: 'Random color', onClick: () => AC.renameAudioClipChannel(ch.id, '', randomColor()) },
+      ] },
+      { label: 'Make unique', onClick: () => { AC.makeAudioClipUnique(c.id); } },
+      { label: 'Select all similar clips', onClick: similar },
+      { label: 'Delete', onClick: del },
+      { separator: true },
+      { label: 'Chop', submenu: [
+        chop('Chop in bars', bar), chop('Chop in beats', t.ppq), chop('Chop in half beats', t.ppq / 2), chop('Chop in quarter beats', t.ppq / 4),
+        chop('Chop in 8th beats', t.ppq / 8), chop('Chop in 16th beats', t.ppq / 16), chop('Chop in 32nd beats', t.ppq / 32),
+      ] },
+      { label: 'Fades', submenu: [
+        { label: 'Show fade editing controls', shortcut: 'Shift+F', checked: pl.showFades, onClick: () => A.setUi((u) => { u.playlist.showFades = !u.playlist.showFades; }) },
+        { label: 'Reset fades', onClick: () => AC.resetFades(ids) },
+        { label: 'Automatic crossfades (current project)', checked: !!p.playlist.autoCrossfades, onClick: () => store.update('Automatic crossfades', (d) => { d.playlist.autoCrossfades = !d.playlist.autoCrossfades; }) },
+        { separator: true },
+        { label: 'Fade in over a step', onClick: () => AC.setAudioClipFields(ids, 'Fade in', { fadeIn: ticksPerStep(t) }) },
+        { label: 'Fade out over a step', onClick: () => AC.setAudioClipFields(ids, 'Fade out', { fadeOut: ticksPerStep(t) }) },
+        { label: 'Fade in over a beat', onClick: () => AC.setAudioClipFields(ids, 'Fade in', { fadeIn: t.ppq }) },
+        { label: 'Fade out over a beat', onClick: () => AC.setAudioClipFields(ids, 'Fade out', { fadeOut: t.ppq }) },
+        { label: 'Reset gain', disabled: !ids.some((id) => (p.playlist.clips.find((k) => k.id === id)?.gain ?? 0) !== 0), onClick: () => AC.setAudioClipFields(ids, 'Reset gain', { gain: 0 }) },
+      ] },
+      { label: 'Sample', submenu: [
+        { label: 'Make unique as sample', hint: 'Render the clip\'s sample as it sounds into a new sample of its own', onClick: () => { AC.makeUniqueAsSample(c.id); } },
+        { label: 'Edit sample', shortcut: 'E', disabled: true, hint: 'Not implemented' },
+        { label: 'Pitch-correct sample', shortcut: 'P', disabled: true, hint: 'Not implemented' },
+        { label: 'Time-warp sample', disabled: true, hint: 'Not implemented' },
+        { separator: true },
+        { label: 'Pitch selected audio clips one semitone up', shortcut: '8', onClick: () => AC.pitchAudioClips(ids, 100) },
+        { label: 'Pitch selected audio clips one semitone down', shortcut: '7', onClick: () => AC.pitchAudioClips(ids, -100) },
+        { label: 'Reverse selected audio clips', shortcut: '9', checked: ch.sampler.reverse, onClick: () => AC.reverseAudioClips(ids) },
+        { separator: true },
+        { label: 'Detect tempo', onClick: () => AC.detectClipTempo(c.id) },
+        { label: 'Fit to tempo', onClick: () => AC.fitClipToTempo(c.id) },
+      ] },
+      { label: 'Automate', submenu: [
+        automate('volume', 'Volume'), automate('pan', 'Panning'),
+        { label: 'Crossfade with...', disabled: true, hint: 'Not implemented' },
+      ] },
+    ];
+  };
+
   /** The clip menu (arrow at the top-left corner of each clip). */
   const clipMenu = (c: Clip, mx: number, my: number) => {
     const p = store.project;
     const similar = () => A.setUi((u) => {
-      u.playlist.selected = p.playlist.clips.filter((k) => (c.kind === 'automation' ? k.autoId === c.autoId : k.kind === 'pattern' && k.patternId === c.patternId)).map((k) => k.id);
+      u.playlist.selected = p.playlist.clips.filter((k) => (c.kind === 'automation' ? k.autoId === c.autoId : c.kind === 'audio' ? k.kind === 'audio' && k.channelId === c.channelId : k.kind === 'pattern' && k.patternId === c.patternId)).map((k) => k.id);
     });
     const del = () => { A.deleteClips([c.id]); A.setUi((u) => { u.playlist.selected = u.playlist.selected.filter((id) => id !== c.id); }); };
     let items: MenuItem[];
@@ -454,6 +586,10 @@ function PlaylistBody() {
         { label: 'Select all similar clips', onClick: similar },
         { label: 'Delete', onClick: del },
       ];
+    } else if (c.kind === 'audio') {
+      const ch = c.channelId ? chById.get(c.channelId) : undefined;
+      if (!ch) return;
+      items = audioClipMenu(c, ch, similar, del);
     } else {
       const pat = p.patterns.find((k) => k.id === c.patternId);
       if (!pat) return;
@@ -493,6 +629,13 @@ function PlaylistBody() {
       if (autoDown(e, h.clip, x, y)) return;
     }
     if (h && h.zone === 'menu' && e.button === 0) { clipMenu(h.clip, e.clientX, e.clientY); return; }
+    // audio clips: the fade and gain handles (right-click opens their menu instead of deleting the clip)
+    if (h && (h.zone === 'fadeIn' || h.zone === 'fadeOut' || h.zone === 'gain')) {
+      if (e.button === 2) { handleMenu(h.clip, h.zone, e.clientX, e.clientY); return; }
+      if (e.button === 0 && !e.ctrlKey && pl.tool !== 'delete' && pl.tool !== 'slice' && pl.tool !== 'mute') { beginHandleDrag(h.clip, h.zone, x, y); return; }
+    }
+    // Alt+right-click on an audio clip auditions it
+    if (e.button === 2 && e.altKey && h && h.clip.kind === 'audio' && h.clip.channelId) { host.preview(h.clip.channelId, 60, 100, 100); return; }
     const tick = tickOf(x), tr = Math.max(0, Math.min(tracks.length - 1, trackOf(y)));
     const base: DragState = { kind: 'move', x0: x, y0: y, x1: x, y1: y, tick0: tick, track0: tr, orig: clips };
     let tool = pl.tool;
@@ -521,6 +664,19 @@ function PlaylistBody() {
           drag.current = tool === 'paint'
             ? { ...base, kind: 'paint', lastPaint: start, orig: store.project.playlist.clips }
             : { ...base, kind: 'move', anchor: c, moved: new Set([id]), orig: store.project.playlist.clips };
+          return;
+        }
+        const asrc = pl.audioSource ? store.project.channels.find((c) => c.id === pl.audioSource && c.kind === 'audioclip') : undefined;
+        if (asrc) {
+          const start = Math.max(0, snapPlace(tick, pl.snap, snapSize(e.altKey)));
+          store.beginGesture('Add clip');
+          const id = A.addAudioClipInstance(tr, asrc.id, start);
+          A.setUi((u) => { u.playlist.selected = []; });
+          const c = id ? store.project.playlist.clips.find((k) => k.id === id) : undefined;
+          if (!c) return;
+          drag.current = tool === 'paint'
+            ? { ...base, kind: 'paint', lastPaint: start, orig: store.project.playlist.clips }
+            : { ...base, kind: 'move', anchor: c, moved: new Set([id!]), orig: store.project.playlist.clips };
           return;
         }
         const pat = store.project.patterns.find((p) => p.id === currentPattern);
@@ -556,6 +712,7 @@ function PlaylistBody() {
         const at = snapPos(tick, snapSize(e.altKey), 'round');
         const c = h.clip;
         if (at <= c.start || at >= c.start + c.length) return;
+        if (c.kind === 'audio') { AC.sliceAudioClip(c.id, at); return; }
         A.updateClips('Slice clip', (cs) => {
           const k = cs.find((q) => q.id === c.id);
           if (!k) return;
@@ -583,6 +740,44 @@ function PlaylistBody() {
     }
   };
 
+  /** Drag a fade or gain handle of an audio clip: one undo step per drag. */
+  const beginHandleDrag = (c: Clip, zone: AudioZone, x: number, y: number) => {
+    store.beginGesture(zone === 'gain' ? 'Clip gain' : 'Clip fade');
+    if (!selected.has(c.id)) A.setUi((u) => { u.playlist.selected = [c.id]; });
+    const v0 = zone === 'gain' ? (c.gain ?? 0) : zone === 'fadeIn' ? (c.fadeIn ?? 0) : (c.fadeOut ?? 0);
+    drag.current = { kind: zone, x0: x, y0: y, x1: x, y1: y, tick0: tickOf(x), track0: c.track, orig: clips, anchor: c, val0: v0 };
+    setHint(zone === 'gain' ? `Gain: ${formatClipGain(c.gain)}` : zone === 'fadeIn' ? `Fade in: ${fmtFade(v0)}` : `Fade out: ${fmtFade(v0)}`);
+  };
+
+  /** Playlist ticks as beats for the fade hints. */
+  const fmtFade = (ticks: number) => (ticks <= 0 ? 'none' : `${Math.round((ticks / t.ppq) * 100) / 100} beat${ticks === t.ppq ? '' : 's'}`);
+
+  /** Right-click on a fade or gain handle. */
+  const handleMenu = (c: Clip, zone: AudioZone, mx: number, my: number) => {
+    const ids = selected.has(c.id) ? pl.selected : [c.id];
+    if (zone === 'gain') {
+      openMenu(mx, my, [
+        { header: true, label: `Clip gain ${formatClipGain(c.gain)}` },
+        { label: 'Reset gain', onClick: () => AC.setAudioClipFields(ids, 'Reset gain', { gain: 0 }) },
+        { separator: true },
+        ...[-12, -6, -3, 3, 6].map((db): MenuItem => ({ label: `${db > 0 ? '+' : ''}${db} dB`, onClick: () => AC.setAudioClipFields(ids, 'Clip gain', { gain: db }) })),
+      ], { minWidth: 150 });
+      return;
+    }
+    const fin = zone === 'fadeIn';
+    const key = fin ? 'fadeInTension' : 'fadeOutTension';
+    const cur = (fin ? c.fadeInTension : c.fadeOutTension) ?? 0;
+    openMenu(mx, my, [
+      { header: true, label: fin ? 'Fade in curve shape' : 'Fade out curve shape' },
+      ...([['Linear', 0], ['Slow start', 0.5], ['Fast start', -0.5], ['Slower start', 0.85], ['Faster start', -0.85]] as [string, number][]).map(([label, v]): MenuItem => ({
+        label, checked: Math.abs(cur - v) < 0.01, radio: true, onClick: () => AC.setAudioClipFields(ids, 'Fade curve', { [key]: v }),
+      })),
+      { separator: true },
+      { label: fin ? 'Reset fade in' : 'Reset fade out', onClick: () => AC.setAudioClipFields(ids, 'Reset fade', fin ? { fadeIn: 0, fadeInTension: 0 } : { fadeOut: 0, fadeOutTension: 0 }) },
+      { label: 'Reset fades', onClick: () => AC.resetFades(ids) },
+    ], { minWidth: 150 });
+  };
+
   const beginClipDrag = (h: { clip: Clip; zone: string }, e: React.PointerEvent, base: DragState) => {
     let sel = selected.has(h.clip.id) ? pl.selected : [h.clip.id];
     if (!selected.has(h.clip.id)) A.setUi((u) => { u.playlist.selected = []; });
@@ -601,12 +796,25 @@ function PlaylistBody() {
     store.beginGesture(kind === 'move' ? 'Move clips' : 'Resize clip');
     if (orig !== clips) A.updateClips('Clone clips', (cs) => { cs.splice(0, cs.length, ...orig); });
     drag.current = { ...base, kind, anchor, orig, moved };
+    if (kind !== 'move' && pl.stretchOnResize && h.clip.kind === 'audio' && h.clip.channelId) {
+      const sch = chById.get(h.clip.channelId);
+      if (sch) {
+        const nat = AC.channelDurationBeats(store.project, sch);
+        // a clip that shows the whole sample is exactly as long as the sample: its length in beats is the sample's
+        const full = h.clip.offset === 0 && Math.abs(h.clip.length - nat * t.ppq) <= 1;
+        const beats = full ? h.clip.length / t.ppq : nat;
+        if (beats > 0) drag.current.stretch0 = { channelId: sch.id, beats };
+      }
+    }
     if (h.clip.kind === 'pattern') {
       A.selectPattern(h.clip.patternId);
-      A.setUi((u) => { u.playlist.lastLen = h.clip.length; u.playlist.autoSource = null; });
+      A.setUi((u) => { u.playlist.lastLen = h.clip.length; u.playlist.autoSource = null; u.playlist.audioSource = null; });
+    } else if (h.clip.kind === 'audio' && h.clip.channelId) {
+      const cid = h.clip.channelId;
+      A.setUi((u) => { u.playlist.audioSource = cid; u.playlist.autoSource = null; });
     } else if (h.clip.autoId) {
       const autoId = h.clip.autoId;
-      A.setUi((u) => { u.playlist.autoSource = autoId; });
+      A.setUi((u) => { u.playlist.autoSource = autoId; u.playlist.audioSource = null; });
     }
   };
 
@@ -639,9 +847,23 @@ function PlaylistBody() {
         }
       } else if (autoHover) setAutoHover(null);
       const h = hit(x, y);
-      const c = h ? (h.zone === 'menu' ? 'default' : h.zone === 'body' ? (pl.tool === 'slip' ? 'ew-resize' : 'move') : 'ew-resize') : pl.tool === 'delete' ? 'not-allowed' : pl.tool === 'slice' ? 'col-resize' : 'default';
+      const c = h ? (h.zone === 'menu' ? 'default' : h.zone === 'gain' ? 'ns-resize' : h.zone === 'body' ? (pl.tool === 'slip' ? 'ew-resize' : 'move') : 'ew-resize') : pl.tool === 'delete' ? 'not-allowed' : pl.tool === 'slice' ? 'col-resize' : 'default';
       if (c !== cursor) setCursor(c);
+      // audio clip handles light up under the pointer
+      const hz: AudioZone | null = h && (h.zone === 'fadeIn' || h.zone === 'fadeOut' || h.zone === 'gain') ? h.zone : null;
+      if ((hz?.toString() ?? '') !== (audioHover?.zone ?? '') || (hz && audioHover?.clipId !== h!.clip.id)) setAudioHover(hz ? { clipId: h!.clip.id, zone: hz } : null);
       if (h && h.zone === 'menu') { setHint('Clip menu'); return; }
+      if (hz && h) {
+        const k = h.clip;
+        setHint(hz === 'gain' ? `${chById.get(k.channelId ?? '')?.name ?? 'Audio clip'} - gain ${formatClipGain(k.gain)}: drag up / down (Ctrl: fine), double-click to reset, right-click for the menu`
+          : `${hz === 'fadeIn' ? 'Fade in' : 'Fade out'} ${fmtFade((hz === 'fadeIn' ? k.fadeIn : k.fadeOut) ?? 0)}: drag to set (Alt: no snap), double-click to reset, right-click for the curve`);
+        return;
+      }
+      if (h && h.clip.kind === 'audio') {
+        const ach = h.clip.channelId ? chById.get(h.clip.channelId) : undefined;
+        setHint(`${ach?.name ?? 'Audio clip'} - drag to move, edges to trim, Slip tool to move the audio inside, shift+drag to clone, right-click to delete, double-click for the channel settings`);
+        return;
+      }
       if (h && h.clip.kind === 'automation') {
         const a = autoOf(h.clip);
         setHint(`${a?.name ?? 'Automation clip'} - drag the title bar to move, its edges to resize, shift+drag to clone, right-click to delete, double-click for settings`);
@@ -659,6 +881,26 @@ function PlaylistBody() {
     const tr = Math.max(0, Math.min(tracks.length - 1, trackOf(y)));
     const s = snapSize(e.altKey);
     switch (d.kind) {
+      case 'fadeIn':
+      case 'fadeOut': {
+        const a = d.anchor!;
+        const cur = store.project.playlist.clips.find((k) => k.id === a.id);
+        if (!cur) return;
+        const edge = d.kind === 'fadeIn' ? snapPos(tick, s, 'round') - cur.start : cur.start + cur.length - snapPos(tick, s, 'round');
+        const other = (d.kind === 'fadeIn' ? cur.fadeOut : cur.fadeIn) ?? 0;
+        const v = Math.max(0, Math.min(cur.length - other, edge));
+        AC.setAudioClipFields([a.id], 'Clip fade', d.kind === 'fadeIn' ? { fadeIn: v } : { fadeOut: v });
+        setHint(`${d.kind === 'fadeIn' ? 'Fade in' : 'Fade out'}: ${fmtFade(v)}`);
+        return;
+      }
+      case 'gain': {
+        const a = d.anchor!;
+        let db = clampClipGain((d.val0 ?? 0) + (d.y0 - y) * (e.ctrlKey || e.metaKey ? 0.04 : 0.25));
+        if (!e.altKey && Math.abs(db) < 0.3) db = 0; // sticks to unity
+        AC.setAudioClipFields([a.id], 'Clip gain', { gain: db });
+        setHint(`Gain: ${formatClipGain(db)} (Ctrl: fine, double-click: reset)`);
+        return;
+      }
       case 'pan': {
         const c = clampScroll(d.scroll0!.tick - (x - d.x0) / pl.pxPerTick, d.scroll0!.track - (y - d.y0) / th);
         A.setUi((u) => { u.playlist.scrollTick = c.tick; u.playlist.scrollTrack = c.track; });
@@ -686,7 +928,16 @@ function PlaylistBody() {
       case 'resize-r': {
         const a = d.orig.find((c) => c.id === d.anchor!.id)!;
         const end = Math.max(a.start + Math.max(1, s), snapPos(a.start + a.length + (tick - d.tick0), s, 'round'));
-        A.updateClips('Resize clip', (cs) => { const c = cs.find((k) => k.id === a.id); if (c) c.length = end - a.start; });
+        // Stretch on: the audio is re-timed to the new length (the offset scales with it)
+        const f = d.stretch0 ? (end - a.start) / Math.max(1, a.length) : 1;
+        if (d.stretch0) AC.setStretchDuration(d.stretch0.channelId, d.stretch0.beats * f);
+        A.updateClips('Resize clip', (cs) => {
+          const c = cs.find((k) => k.id === a.id);
+          if (!c) return;
+          c.length = end - a.start;
+          if (d.stretch0) c.offset = Math.round(a.offset * f);
+          if (c.kind === 'audio') fitFades(c);
+        });
         A.setUi((u) => { u.playlist.lastLen = end - a.start; });
         return;
       }
@@ -695,22 +946,51 @@ function PlaylistBody() {
         const st = Math.max(0, Math.min(a.start + a.length - Math.max(1, s), snapPos(a.start + (tick - d.tick0), s, 'round')));
         const ds = st - a.start;
         const newOffset = Math.max(0, a.offset + ds);
+        if (d.stretch0) {
+          // Stretch on: moving the start re-times the audio to the new length; the sample window stays whole
+          const f2 = (a.start + a.length - st) / Math.max(1, a.length);
+          AC.setStretchDuration(d.stretch0.channelId, d.stretch0.beats * f2);
+          A.updateClips('Resize clip', (cs) => {
+            const c = cs.find((k) => k.id === a.id);
+            if (!c) return;
+            c.start = st;
+            c.length = a.start + a.length - st;
+            c.offset = Math.round(a.offset * f2);
+            fitFades(c);
+          });
+          return;
+        }
         A.updateClips('Resize clip', (cs) => {
           const c = cs.find((k) => k.id === a.id);
           if (!c) return;
           c.start = a.start + (newOffset - a.offset);
           c.length = a.length - (newOffset - a.offset);
           c.offset = newOffset;
+          if (c.kind === 'audio') fitFades(c);
         });
         return;
       }
       case 'slip': {
         const a = d.orig.find((c) => c.id === d.anchor!.id)!;
         const doff = Math.round((d.tick0 - tick) / s) * s;
-        A.updateClips('Slip clip', (cs) => { const c = cs.find((k) => k.id === a.id); if (c) c.offset = Math.max(0, a.offset + doff); });
+        // an audio clip's window stays over its sample
+        const ach = a.kind === 'audio' && a.channelId ? chById.get(a.channelId) : undefined;
+        const sm = ach ? sourceMap(ach, tempo) : null;
+        const maxOff = sm ? Math.max(0, Math.round(mapTicks(sm, tempo, ppq)) - 1) : Infinity;
+        A.updateClips('Slip clip', (cs) => { const c = cs.find((k) => k.id === a.id); if (c) c.offset = Math.max(0, Math.min(maxOff, a.offset + doff)); });
         return;
       }
       case 'paint': {
+        const asrc = pl.audioSource ? chById.get(pl.audioSource) : undefined;
+        if (asrc) {
+          const len = Math.max(1, AC.naturalClipTicks(store.project, asrc));
+          const start = Math.max(0, snapPlace(tick, pl.snap, s));
+          if (start >= (d.lastPaint ?? 0) + len || start < (d.lastPaint ?? 0)) {
+            const overlap = curClips().some((c) => c.track === tr && c.start < start + len && c.start + c.length > start);
+            if (!overlap) { A.addAudioClipInstance(tr, asrc.id, start); d.lastPaint = start; }
+          }
+          return;
+        }
         const src = pl.autoSource ? autoById(pl.autoSource) : undefined;
         if (src) {
           const len = Math.max(1, src.length);
@@ -854,6 +1134,24 @@ function PlaylistBody() {
         A.setUi((u) => { u.playlist.selected = copies.map((c) => c.id); });
         return true;
       }
+      // Edit > Cut / Copy / Paste (Ctrl+X / C / V): paste goes to the play position in song mode (FL 21+), else where the clips were
+      if (ctrl && !e.altKey && !e.shiftKey && (e.key === 'c' || e.key === 'C' || e.key === 'x' || e.key === 'X')) {
+        copySelectedClips(e.key === 'x' || e.key === 'X');
+        return true;
+      }
+      if (ctrl && !e.altKey && !e.shiftKey && (e.key === 'v' || e.key === 'V')) {
+        pasteClips();
+        return true;
+      }
+      // audio clips: 7 / 8 pitch the selected clips down / up a semitone, 9 reverses them (FL 2025+); Shift+F shows the fade
+      // controls, Shift+M stretches the audio when a clip is resized
+      if (!ctrl && !e.altKey && !store.ui.typingKeyboard) {
+        const audioSel = store.project.playlist.clips.filter((c) => sel.has(c.id) && c.kind === 'audio').map((c) => c.id);
+        if (!e.shiftKey && audioSel.length && (e.key === '7' || e.key === '8')) { AC.pitchAudioClips(audioSel, e.key === '8' ? 100 : -100); return true; }
+        if (!e.shiftKey && audioSel.length && e.key === '9') { AC.reverseAudioClips(audioSel); return true; }
+        if (e.shiftKey && (e.key === 'F' || e.key === 'f')) { A.setUi((u) => { u.playlist.showFades = !u.playlist.showFades; }); return true; }
+        if (e.shiftKey && (e.key === 'M' || e.key === 'm')) { A.setUi((u) => { u.playlist.stretchOnResize = !u.playlist.stretchOnResize; }); return true; }
+      }
       if (e.key === 'Delete') {
         // with nothing selected, Delete removes every clip (FL behaviour)
         A.deleteClips(sel.size ? [...sel] : store.project.playlist.clips.map((c) => c.id));
@@ -910,6 +1208,24 @@ function PlaylistBody() {
   };
 
   const onGridDrop = (e: React.DragEvent) => {
+    // a sample from the Browser, an audio file from the desktop or an audio clip from the picker panel: an audio clip at the drop point (FL)
+    const sid = e.dataTransfer.getData('text/x-orchard-sample');
+    const cid = e.dataTransfer.getData('text/x-orchard-audio');
+    const files = [...e.dataTransfer.files].filter((f) => f.type.startsWith('audio') || /\.(wav|mp3|ogg|flac|aiff?|m4a)$/i.test(f.name));
+    if (sid || cid || files.length) {
+      e.preventDefault();
+      const { x, y } = local(e);
+      const tr = Math.max(0, Math.min(tracks.length - 1, trackOf(y)));
+      const start = Math.max(0, snapPlace(tickOf(x), pl.snap, snapTicks(pl.snap, t, gT)));
+      if (cid) { const id = A.addAudioClipInstance(tr, cid, start); if (id) A.setUi((u) => { u.playlist.audioSource = cid; u.playlist.autoSource = null; u.playlist.selected = [id]; }); return; }
+      if (sid) {
+        const r = A.addAudioClip(sid, start, { track: tr });
+        A.setUi((u) => { u.playlist.audioSource = r.channelId; u.playlist.autoSource = null; u.playlist.selected = [r.clipId]; });
+        return;
+      }
+      void importAudioClipFiles(files, start, tr).then((ids) => { if (ids.length) A.setUi((u) => { u.playlist.selected = ids; }); });
+      return;
+    }
     const aid = e.dataTransfer.getData('text/x-orchard-auto');
     if (aid) {
       e.preventDefault();
@@ -948,15 +1264,26 @@ function PlaylistBody() {
         </div>
       </div>
       <div className="pl-grid" ref={wrap} style={{ cursor }}
-        onDragOver={(e) => { if (e.dataTransfer.types.includes('text/x-orchard-pattern') || e.dataTransfer.types.includes('text/x-orchard-auto')) e.preventDefault(); }}
+        onDragOver={(e) => {
+          const ty = e.dataTransfer.types;
+          if (ty.includes('text/x-orchard-pattern') || ty.includes('text/x-orchard-auto') || ty.includes('text/x-orchard-audio') || ty.includes('text/x-orchard-sample') || ty.includes('Files')) e.preventDefault();
+        }}
         onDrop={onGridDrop}
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onWheel={onWheel}
-        onPointerLeave={() => { if (!drag.current) clearHint(); }}
+        onPointerLeave={() => { if (!drag.current) { clearHint(); if (audioHover) setAudioHover(null); } }}
         onDoubleClick={(e) => {
           const { x, y } = local(e);
           const h = hit(x, y);
           if (h && h.clip.kind === 'automation') {
             if (h.clip.autoId) A.openAutomationWindow(h.clip.autoId);
+            return;
+          }
+          if (h && h.clip.kind === 'audio') {
+            // a handle resets itself; anywhere else the clip's channel settings open
+            if (h.zone === 'gain') AC.setAudioClipFields([h.clip.id], 'Reset gain', { gain: 0 });
+            else if (h.zone === 'fadeIn') AC.setAudioClipFields([h.clip.id], 'Reset fade', { fadeIn: 0, fadeInTension: 0 });
+            else if (h.zone === 'fadeOut') AC.setAudioClipFields([h.clip.id], 'Reset fade', { fadeOut: 0, fadeOutTension: 0 });
+            else if (h.clip.channelId) A.openChannelSettings(h.clip.channelId);
             return;
           }
           if (h) openPatternOf(h.clip);
@@ -978,16 +1305,19 @@ function PlaylistBody() {
 function PickerPanel() {
   const patterns = useProject((p) => p.patterns);
   const automation = useProject((p) => p.automation);
+  const channels = useProject((p) => p.channels);
+  const audio = channels.filter((c) => c.kind === 'audioclip');
   const current = useProject((p) => p.currentPatternId);
   const autoSource = useUi((u) => u.playlist.autoSource);
+  const audioSource = useUi((u) => u.playlist.audioSource);
   return (
     <div className="pl-picker">
       <div className="pl-picker-head">Patterns</div>
       <div className="pl-picker-list">
         {patterns.map((p, i) => (
-          <div key={p.id} className={'pl-pick' + (!autoSource && p.id === current ? ' current' : '')} draggable
+          <div key={p.id} className={'pl-pick' + (!autoSource && !audioSource && p.id === current ? ' current' : '')} draggable
             onDragStart={(e) => { e.dataTransfer.setData('text/x-orchard-pattern', p.id); e.dataTransfer.effectAllowed = 'copy'; }}
-            onPointerDown={() => { A.selectPattern(p.id); A.setUi((u) => { u.playlist.autoSource = null; }); }}
+            onPointerDown={() => { A.selectPattern(p.id); A.setUi((u) => { u.playlist.autoSource = null; u.playlist.audioSource = null; }); }}
             onDoubleClick={() => { const n = prompt('Pattern name', p.name); if (n !== null) A.renamePattern(p.id, n); }}
             onPointerEnter={() => setHint(`${p.name} - click to select as the clip source, drag into the playlist`)} onPointerLeave={clearHint}>
             <span className="pl-pick-swatch" style={{ background: A.patternColor(p, i) }} />
@@ -998,7 +1328,7 @@ function PickerPanel() {
         {automation.map((a) => (
           <div key={a.id} className={'pl-pick pl-pick-auto' + (autoSource === a.id ? ' current' : '')} draggable
             onDragStart={(e) => { e.dataTransfer.setData('text/x-orchard-auto', a.id); e.dataTransfer.effectAllowed = 'copy'; }}
-            onPointerDown={() => A.setUi((u) => { u.playlist.autoSource = a.id; })}
+            onPointerDown={() => A.setUi((u) => { u.playlist.autoSource = a.id; u.playlist.audioSource = null; })}
             onDoubleClick={() => A.openAutomationWindow(a.id)}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -1012,6 +1342,28 @@ function PickerPanel() {
             }}
             onPointerEnter={() => setHint(`${a.name} - automation clip: click to select as the clip source, drag into the playlist, double-click for settings`)} onPointerLeave={clearHint}>
             <span className="pl-pick-swatch auto" style={{ background: a.color }}><IconAutomation size={9} /></span>
+            <span className="pl-pick-name">{a.name}</span>
+          </div>
+        ))}
+        {audio.length > 0 && <div className="pl-picker-sub">Audio</div>}
+        {audio.map((a) => (
+          <div key={a.id} className={'pl-pick pl-pick-auto' + (audioSource === a.id ? ' current' : '')} draggable
+            onDragStart={(e) => { e.dataTransfer.setData('text/x-orchard-audio', a.id); e.dataTransfer.effectAllowed = 'copy'; }}
+            onPointerDown={(e) => { if (e.button === 0) { A.setUi((u) => { u.playlist.audioSource = a.id; u.playlist.autoSource = null; }); } }}
+            onDoubleClick={() => A.openChannelSettings(a.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              openMenu(e.clientX, e.clientY, [
+                { header: true, label: a.name },
+                { label: 'Preview', onClick: () => host.preview(a.id, 60, 100, 100) },
+                { label: 'Channel settings', onClick: () => A.openChannelSettings(a.id) },
+                { label: 'Rename...', onClick: () => { const n = prompt('Audio clip name', a.name); if (n !== null) AC.renameAudioClipChannel(a.id, n); } },
+                { separator: true },
+                { label: 'Delete', onClick: () => A.deleteChannels([a.id]) },
+              ]);
+            }}
+            onPointerEnter={() => setHint(`${a.name} - audio clip: click to select as the clip source, drag into the playlist, double-click for the channel settings`)} onPointerLeave={clearHint}>
+            <span className="pl-pick-swatch auto" style={{ background: a.color }}><IconWave size={9} /></span>
             <span className="pl-pick-name">{a.name}</span>
           </div>
         ))}
@@ -1032,8 +1384,25 @@ function TrackHeader({ track: tr, index, height }: { track: PlaylistTrack; index
     ];
     openMenu(x, y, items);
   };
+  // FL: an audio file dropped on a track header becomes an audio clip on that track and names the track after it
+  const dropOnHeader = (e: React.DragEvent) => {
+    const sid = e.dataTransfer.getData('text/x-orchard-sample');
+    const files = [...e.dataTransfer.files].filter((f) => f.type.startsWith('audio') || /\.(wav|mp3|ogg|flac|aiff?|m4a)$/i.test(f.name));
+    if (!sid && !files.length) return;
+    e.preventDefault();
+    const start = AC.audioClipInsertPosition(store.project, currentTick());
+    const nameTrack = (clipId: string | undefined) => {
+      const k = store.project.playlist.clips.find((c) => c.id === clipId);
+      const ch = k?.channelId ? store.project.channels.find((c) => c.id === k.channelId) : undefined;
+      if (ch && /^Track \d+$/.test(store.project.playlist.tracks[index]?.name ?? '')) A.setPlaylistTrack(index, 'name', ch.name, 'Rename track');
+    };
+    if (sid) { nameTrack(A.addAudioClip(sid, start, { track: index }).clipId); return; }
+    void importAudioClipFiles(files, start, index).then((ids) => nameTrack(ids[0]));
+  };
   return (
     <div className="pl-head" style={{ height, ['--tc' as string]: tr.color }}
+      onDragOver={(e) => { const ty = e.dataTransfer.types; if (ty.includes('text/x-orchard-sample') || ty.includes('Files')) e.preventDefault(); }}
+      onDrop={dropOnHeader}
       onContextMenu={(e) => { e.preventDefault(); menu(e.clientX, e.clientY); }}>
       <div className="pl-head-color" />
       <span className="pl-head-name" onDoubleClick={() => { const n = prompt('Track name', tr.name); if (n) A.setPlaylistTrack(index, 'name', n, 'Rename track'); }}>{tr.name}</span>
@@ -1042,6 +1411,41 @@ function TrackHeader({ track: tr, index, height }: { track: PlaylistTrack; index
         onRightClick={() => soloTrack(index)} />
     </div>
   );
+}
+
+/** Edit > Copy / Cut: the selected clips go to the clipboard (cut: and leave the Playlist). */
+function copySelectedClips(cut: boolean): void {
+  const sel = new Set(store.ui.playlist.selected);
+  const src = store.project.playlist.clips.filter((c) => sel.has(c.id));
+  if (!src.length) return;
+  clipClipboard = { clips: structuredClone(src) as Clip[], first: Math.min(...src.map((c) => c.start)) };
+  if (cut) {
+    A.deleteClips(src.map((c) => c.id));
+    A.setUi((u) => { u.playlist.selected = []; });
+  }
+  flashHint(`${src.length} clip${src.length === 1 ? '' : 's'} ${cut ? 'cut' : 'copied'}`);
+}
+
+/** Edit > Paste: at the play position in song mode (FL 21+), else where the clips were; the copies are selected. */
+function pasteClips(): void {
+  const cb = clipClipboard;
+  if (!cb) return;
+  const p = store.project;
+  const stepT = ticksPerStep({ ppq: p.ppq, beatsPerBar: p.beatsPerBar, stepsPerBeat: p.stepsPerBeat });
+  const at = p.songMode ? Math.max(0, Math.round(currentTick() / stepT) * stepT) : cb.first;
+  const copies = cb.clips
+    .filter((c) => (c.kind === 'audio' ? p.channels.some((ch) => ch.id === c.channelId && ch.kind === 'audioclip')
+      : c.kind === 'automation' ? p.automation.some((a) => a.id === c.autoId) : p.patterns.some((q) => q.id === c.patternId)))
+    .map((c) => ({ ...structuredClone(c), id: uid('k'), start: Math.max(0, at + (c.start - cb.first)) }));
+  if (!copies.length) return;
+  A.updateClips('Paste clips', (cs) => { cs.push(...copies); });
+  A.setUi((u) => { u.playlist.selected = copies.map((c) => c.id); });
+}
+
+/** Keep an audio clip's fades inside its length (the two fades do not overlap). */
+function fitFades(c: Clip): void {
+  if (c.fadeIn !== undefined) { c.fadeIn = Math.min(c.fadeIn, c.length); if (c.fadeIn <= 0) delete c.fadeIn; }
+  if (c.fadeOut !== undefined) { c.fadeOut = Math.min(c.fadeOut, c.length - (c.fadeIn ?? 0)); if (c.fadeOut <= 0) delete c.fadeOut; }
 }
 
 function soloTrack(index: number) {

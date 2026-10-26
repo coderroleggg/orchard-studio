@@ -7,6 +7,8 @@ import { newProject, openProjectFile, saveProject, saveProjectAs, exportWav, imp
 import { INTERP_LABELS, type InterpMode } from '../../model/sampler';
 import { setMidiEnabled, midiEnabled } from '../../audio/midi';
 import { flashHint } from '../hint';
+import { setRec } from '../../audio/recording';
+import { audioInputItems, oneClickItems } from './recordingMenus';
 
 export interface MainMenu {
   label: string;
@@ -77,6 +79,9 @@ export function buildMainMenus(): MainMenu[] {
       label: 'OPTIONS',
       items: [
         { label: 'Metronome', shortcut: 'Ctrl+M', checked: ui.metronome, onClick: () => { A.setUi((u) => { u.metronome = !u.metronome; }); host.setMetronome(store.ui.metronome); } },
+        { label: 'Recording precount', shortcut: 'Ctrl+P', checked: ui.rec.countdown, onClick: () => setRec({ countdown: !store.ui.rec.countdown }) },
+        { label: 'Start on input', shortcut: 'Ctrl+I', checked: ui.rec.waitForInput, onClick: () => setRec({ waitForInput: !store.ui.rec.waitForInput }) },
+        { label: 'Loop record', checked: ui.rec.loop, onClick: () => setRec({ loop: !store.ui.rec.loop }) },
         { label: 'Typing keyboard to piano', shortcut: 'Ctrl+T', checked: ui.typingKeyboard, onClick: () => A.setUi((u) => { u.typingKeyboard = !u.typingKeyboard; }) },
         { label: 'Undo knob tweaks', checked: store.undoKnobTweaks, onClick: () => { store.undoKnobTweaks = !store.undoKnobTweaks; } },
         { separator: true },
@@ -84,6 +89,8 @@ export function buildMainMenus(): MainMenu[] {
           { label: 'Enable MIDI input', checked: midiEnabled(), onClick: () => { void setMidiEnabled(!midiEnabled()); } },
         ] },
         { label: 'Audio settings', submenu: [
+          ...audioInputItems(),
+          { separator: true },
           { header: true, label: 'Resampling (live)' },
           ...(Object.keys(INTERP_LABELS) as InterpMode[]).map((m) => ({
             label: INTERP_LABELS[m], checked: ui.interpolation === m, radio: true,
@@ -100,6 +107,8 @@ export function buildMainMenus(): MainMenu[] {
     {
       label: 'TOOLS',
       items: [
+        { label: 'One-click audio recording', submenu: oneClickItems() },
+        { separator: true },
         { label: 'Tap tempo', shortcut: 'T', onClick: () => flashHint('Tap T repeatedly to set the tempo') },
       ],
     },

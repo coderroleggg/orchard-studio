@@ -11,6 +11,7 @@ import { defaultMidiOut, normalizeMidiOut } from './midiout';
 import { defaultGenParams, genDef, normalizeGenParams } from './gen/registry';
 import { channelOfSlot } from './gen/ids';
 import { LAYER_COLOR, defaultLayer, defaultLayerSampler, normalizeLayer, repairLayers } from './layer';
+import { AUDIO_CLIP_COLOR, AUDIO_CLIP_VOLUME_DEFAULT, audioClipSampler, normalizeAudioClip } from './audioclip';
 
 export const NUM_INSERTS = 125;
 export const NUM_PLAYLIST_TRACKS = 500;
@@ -90,6 +91,17 @@ export function createLayerChannel(name = 'Layer'): Channel {
   return { ...c, kind: 'layer', color: LAYER_COLOR, volume: 1, sampler: defaultLayerSampler(), layer: defaultLayer() };
 }
 
+/**
+ * An Audio Clip channel (FL: made when a sample is dropped on the Playlist): a
+ * Sampler-like channel that holds one pool sample and plays only through its
+ * audio clips. Volume 100% (the sample's original level), centred, routed to
+ * the Master unless a mixer track is given.
+ */
+export function createAudioClipChannel(name: string, sampleId: Id | null, mixerTrack = 0): Channel {
+  const c = createChannel(name, sampleId, mixerTrack);
+  return { ...c, kind: 'audioclip', color: AUDIO_CLIP_COLOR, volume: AUDIO_CLIP_VOLUME_DEFAULT, sampler: audioClipSampler(sampleId) };
+}
+
 /** A channel's instrument MIDI input port (-1 = none). */
 function normalizePort(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.min(255, Math.round(v)) : -1;
@@ -101,7 +113,7 @@ function normalizePort(v: unknown): number {
  * plugin id this version does not know keeps its stored state).
  */
 export function normalizeChannel(c: Channel): Channel {
-  const kind = c.kind === 'midiout' ? 'midiout' : c.kind === 'layer' ? 'layer' : c.kind === 'plugin' && c.plugin && typeof c.plugin.id === 'string' ? 'plugin' : 'sampler';
+  const kind = c.kind === 'midiout' ? 'midiout' : c.kind === 'layer' ? 'layer' : c.kind === 'audioclip' ? 'audioclip' : c.kind === 'plugin' && c.plugin && typeof c.plugin.id === 'string' ? 'plugin' : 'sampler';
   const out: Channel = { ...c, kind, sampler: normalizeSampler(c.sampler, c.sampler?.sampleId ?? null) };
   if (kind === 'midiout') out.midiOut = normalizeMidiOut(c.midiOut);
   else delete out.midiOut;
@@ -202,7 +214,7 @@ export function createDefaultProject(samples: Record<Id, SampleInfo>, sampleIdsB
     patterns: [pattern],
     currentPatternId: pattern.id,
     songMode: false,
-    playlist: { tracks: ptracks, clips: [], markers: [] },
+    playlist: { tracks: ptracks, clips: [], markers: [], autoCrossfades: true },
     mixer: { tracks },
     samples,
   };
@@ -233,6 +245,11 @@ export function normalizeProject(p: Project): Project {
   for (let i = 0; i < NUM_PLAYLIST_TRACKS; i++) ptracks.push(p.playlist?.tracks?.[i] ?? createPlaylistTrack(i));
   const channels = (p.channels ?? []).map((c) => normalizeChannel(c));
   repairLayers(channels);
+  // audio clips: an older project has none; one whose Audio Clip channel is gone cannot play and is dropped
+  const audioChannels = new Set(channels.filter((c) => c.kind === 'audioclip').map((c) => c.id));
+  const clips = (p.playlist?.clips ?? [])
+    .map((c) => normalizeAudioClip({ ...c, kind: c.kind ?? 'pattern' }))
+    .filter((c) => c.kind !== 'audio' || (c.channelId !== undefined && audioChannels.has(c.channelId)));
   return {
     ...p,
     swing: p.swing ?? 0,
@@ -247,7 +264,7 @@ export function normalizeProject(p: Project): Project {
       if (ch !== null) return (p.channels ?? []).some((c) => c.id === ch && c.kind === 'plugin');
       return tracks.some((t) => t.slots.some((s) => s?.id === id));
     }),
-    playlist: { tracks: ptracks, clips: (p.playlist?.clips ?? []).map((c) => ({ ...c, kind: c.kind ?? 'pattern' })), markers: p.playlist?.markers ?? [] },
+    playlist: { tracks: ptracks, clips, markers: p.playlist?.markers ?? [], ...(p.playlist?.autoCrossfades ? { autoCrossfades: true } : {}) },
     mixer: { tracks },
   };
 }

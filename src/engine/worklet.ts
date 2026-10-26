@@ -29,12 +29,14 @@ class EngineProcessor extends AudioWorkletProcessor {
     };
   }
 
-  process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
+  process(inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
     const out = outputs[0];
     if (!out || out.length === 0) return true;
     const L = out[0];
     const R = out[1] ?? out[0];
-    this.engine.process(L, R, L.length);
+    // the audio device's input channels (empty while no input device is connected)
+    const inp = inputs[0];
+    this.engine.process(L, R, L.length, inp && inp.length ? inp : undefined);
     return true;
   }
 }

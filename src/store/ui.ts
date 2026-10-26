@@ -1,6 +1,8 @@
 // UI state (not part of the undo history or saved project data).
 
 import type { Id } from '../model/types';
+import { loadRecSettings } from '../audio/recSettings';
+import type { RecSettings } from '../model/recording';
 
 export type ToolId = 'draw' | 'paint' | 'delete' | 'mute' | 'slip' | 'slice' | 'select' | 'zoom' | 'playback';
 
@@ -53,6 +55,12 @@ export interface PlaylistUi {
   picker: boolean; // picker panel (Alt+P)
   /** Automation clip used as the clip source (null: the current pattern). */
   autoSource: Id | null;
+  /** Audio Clip channel used as the clip source (null: the current pattern or automation clip). */
+  audioSource: Id | null;
+  /** Audio clips: show the fade and gain handles (Shift+F). */
+  showFades: boolean;
+  /** Audio clips: dragging an edge stretches the audio instead of trimming it (Shift+M). */
+  stretchOnResize: boolean;
   /** Automation editing switches: Step (free-hand points per grid step), Slide (later points follow). */
   autoStep: boolean;
   autoSlide: boolean;
@@ -72,7 +80,10 @@ export interface UiState {
   browserWidth: number;
   mainSnap: SnapId;
   metronome: boolean;
+  /** The Record button is on (armed): Play records the armed mixer tracks. */
   recording: boolean;
+  /** Recording options and toolbar switches (program settings, kept in local storage). */
+  rec: RecSettings;
   timeDisplay: 'bst' | 'msc';
   channelRackShowAll: boolean;
   graphEditor: boolean;
@@ -127,6 +138,9 @@ export function defaultUi(): UiState {
       lastLen: null,
       picker: true,
       autoSource: null,
+      audioSource: null,
+      showFades: true,
+      stretchOnResize: false,
       autoStep: false,
       autoSlide: true, // FL: STEP off, SLIDE on
       timeSel: null,
@@ -137,6 +151,7 @@ export function defaultUi(): UiState {
     mainSnap: 'line',
     metronome: false,
     recording: false,
+    rec: loadRecSettings(),
     timeDisplay: 'bst',
     channelRackShowAll: true,
     graphEditor: false,

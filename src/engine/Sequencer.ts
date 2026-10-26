@@ -123,7 +123,7 @@ export interface CompiledClip {
 export function compileClips(clips: Clip[], tracks: PlaylistTrack[]): CompiledClip[] {
   const out: CompiledClip[] = [];
   for (const c of clips) {
-    if (c.muted) continue;
+    if (c.muted || c.kind === 'audio') continue; // audio clips are played by AudioClips.ts
     const tr = tracks[c.track];
     if (tr && !tr.enabled) continue;
     out.push({ start: c.start, end: c.start + c.length, offset: c.offset, patternId: c.patternId, track: c.track });

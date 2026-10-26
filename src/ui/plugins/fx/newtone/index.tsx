@@ -14,6 +14,7 @@ import { openMenu, type MenuItem } from '../../../widgets/ContextMenu';
 import { flashHint } from '../../../hint';
 import { store, useProject } from '../../../../store';
 import * as A from '../../../../store/actions';
+import * as AC from '../../../../store/audioClipActions';
 import { getRaw } from '../../../../audio/samples';
 import { uid } from '../../../../model/defaults';
 import type { Note, Project, SampleInfo } from '../../../../model/types';
@@ -198,8 +199,7 @@ function NewtoneEditor() {
   };
   const sendToChannel = () => {
     if (!p.out) { flashHint('Nothing rendered yet'); return; }
-    A.addChannel(`${p.sample?.name ?? 'Newtone'} (Newtone)`, p.out.id);
-    flashHint('The rendered sample was added to the channel rack');
+    AC.sendToPlaylist(p.out.id, `${p.sample?.name ?? 'Newtone'} (Newtone)`);
   };
   const del = () => { if (sel.size) { editNotes('Delete notes', deleteNotes(model.notes, sel)); setSel(new Set()); } };
   const selectAll = () => setSel(new Set(model.notes.filter((n) => !n.del).map((n) => n.id)));
@@ -320,7 +320,7 @@ function NewtoneEditor() {
         x: 485, icon: 'drag', hint: 'Drag selection (drop on the channel rack)', onClick: () => flashHint('Drag this button onto the channel rack'),
         drag: (e) => { if (p.out) { e.dataTransfer.setData(SAMPLE_DRAG_TYPE, p.out.id); e.dataTransfer.effectAllowed = 'copy'; } else e.preventDefault(); },
       },
-      { x: 509, icon: 'playlist', hint: 'Send to playlist (adds the render to the channel rack)', onClick: sendToChannel },
+      { x: 509, icon: 'playlist', hint: 'Send to playlist as audio clip (an Audio Clip of the render at the time selection or the playhead)', onClick: sendToChannel },
     ],
   ];
 

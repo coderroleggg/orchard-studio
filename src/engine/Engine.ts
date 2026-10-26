@@ -8,6 +8,8 @@ import { SamplerChannel, type SampleData } from './Sampler';
 import { GenChannel } from './GenChannel';
 import type { InstrumentChannel, LayerTap } from './InstrumentChannel';
 import { LayerChannel } from './LayerChannel';
+import { AudioClipPlayer } from './AudioClips';
+import { RecordingController, armedModels } from './Recording';
 import type { GenContext, GenEnv } from './gen/types';
 import { MidiOutChannel, type PortNote } from './MidiOut';
 import { channelOfSlot, channelSlotId, hostedInChannel } from '../model/gen/ids';
@@ -77,6 +79,10 @@ export class Engine {
   private retiredMidiOuts: MidiOutChannel[] = [];
   /** Layer channels: their notes are handed to their children (instrument channels, MIDI Out) at once. */
   layers = new Map<Id, LayerChannel>();
+  /** Audio Clip channels and the audio clips of the Playlist (AudioClips.ts). */
+  audio: AudioClipPlayer;
+  /** Audio recording sessions (Recording.ts). */
+  readonly rec: RecordingController;
   private random: () => number;
   /** This block's note events from the MIDI Out channels (pooled objects, `noteCount` used). */
   private noteBus: PortNote[] = [];
@@ -145,7 +151,9 @@ export class Engine {
     this.sampleRate = opts.sampleRate;
     this.blockSize = opts.blockSize ?? 128;
     this.random = opts.random ?? Math.random;
+    this.audio = new AudioClipPlayer(this.sampleRate, opts.blockSize ?? 128);
     this.post = opts.post ?? (() => {});
+    this.rec = new RecordingController(this, (m, t) => this.post(m, t));
     this.statusInterval = opts.statusInterval ?? Math.round(this.sampleRate / 60);
     this.mixer = new MixerEngine(MIXER_TRACKS, this.sampleRate, this.blockSize, !!opts.rendering);
     this.mixer.env = {
@@ -177,6 +185,7 @@ export class Engine {
       case 'globals': {
         const prev = this.globals;
         this.globals = msg.g;
+        this.audio.setGlobals(msg.g);
         this.automation.ppq = msg.g.ppq;
         // automation keeps control of automated globals while the song plays
         if (this.autoActive()) for (const [t, v] of this.automation.targetsOn('global', '')) setPath(this.globals, t.path, v);
@@ -191,6 +200,7 @@ export class Engine {
         this.channels.delete(msg.id);
         this.retireMidiOut(msg.id);
         this.retireLayer(msg.id);
+        this.audio.removeChannel(msg.id);
         this.chModels.delete(msg.id);
         this.channelOrder = this.channelOrder.filter((id) => id !== msg.id);
         this.dirtyPatterns = true;
@@ -202,6 +212,7 @@ export class Engine {
         this.rawClips = { tracks: msg.tracks, clips: msg.clips };
         this.repeatClips = !!msg.repeatClips;
         this.recompileClips();
+        this.audio.setClips(msg.clips, msg.tracks, !!msg.autoCrossfades);
         this.automation.setPlaylist(msg.clips, msg.tracks);
         if (this.songMode) this.chaseAutomation('edit');
         break;
@@ -228,11 +239,13 @@ export class Engine {
       case 'sample': {
         this.samples.set(msg.id, { channels: msg.data, sampleRate: msg.sampleRate, frames: msg.data[0]?.length ?? 0 });
         for (const ch of this.channels.values()) ch.refreshSample(this.samples);
+        this.audio.refreshSamples(this.samples);
         break;
       }
       case 'sampleRemove': {
         this.samples.delete(msg.id);
         for (const ch of this.channels.values()) ch.refreshSample(this.samples);
+        this.audio.refreshSamples(this.samples);
         break;
       }
       case 'play': this.play(); break;
@@ -242,6 +255,7 @@ export class Engine {
         if (this.songMode !== msg.song) {
           this.releaseAll();
           this.pos = msg.song ? this.loopStartTick() : 0;
+          this.rec.onSeek(this.pos); // a recording goes on in a new take from the new position
         }
         this.songMode = msg.song;
         this.patternId = msg.patternId;
@@ -255,6 +269,7 @@ export class Engine {
       case 'seek': {
         this.releaseAll();
         this.pos = Math.max(0, msg.tick);
+        this.rec.onSeek(this.pos);
         this.pendingTruncated = this.playing;
         // automated controls jump to the automation value at the new position
         if (this.songMode) this.chaseAutomation('seek');
@@ -267,7 +282,7 @@ export class Engine {
         else {
           const ly = this.layers.get(msg.ch);
           if (ly) ly.liveNoteOn(msg.key, msg.vel, msg.tag);
-          else this.channels.get(msg.ch)?.liveNoteOn(msg.key, msg.vel, msg.tag);
+          else if (!this.audio.previewOn(msg.ch, msg.tag)) this.channels.get(msg.ch)?.liveNoteOn(msg.key, msg.vel, msg.tag); // an Audio Clip channel auditions its sample
         }
         break;
       }
@@ -290,18 +305,25 @@ export class Engine {
         }
         // panic: MIDI Out channels send their note offs, every effect forgets its notes
         for (const mo of this.midiOuts.values()) mo.allNotesOff();
+        this.audio.stopAll(0, 4);
         this.mixer.allNotesOff();
         break;
       case 'metronome': this.metronome = msg.on; break;
       case 'interp': {
         this.interp = msg.mode;
         for (const ch of this.channels.values()) ch.setInterpolation(msg.mode);
+        this.audio.setInterpolation(msg.mode);
         break;
       }
       case 'watchSpectrum': this.watchedSlot = msg.slotId; break;
       case 'watchFx': this.mixer.watched = new Set(msg.ids); break;
       case 'mixerSelect': this.mixer.currentSource = msg.index; break;
       case 'loop': this.loopStart = msg.start; this.loopEnd = msg.end; break;
+      case 'recLatency': this.rec.latencyIn = Math.max(0, msg.input); this.rec.latencyOut = Math.max(0, msg.output); break;
+      case 'recStart': this.rec.start(msg.o); break;
+      case 'recStop': this.rec.stop(); break;
+      case 'recCancel': this.rec.cancel(); break;
+      case 'inputLevels': this.mixer.showInputLevels = msg.on; break;
       case 'links': this.setLinks(msg.list); break;
       case 'mouse': FORMULA_GLOBALS.mouseX = msg.x; FORMULA_GLOBALS.mouseY = msg.y; break;
       case 'ping': this.post({ t: 'pong', id: msg.id }); break;
@@ -311,6 +333,17 @@ export class Engine {
   private setChannel(c: Channel): void {
     this.chModels.set(c.id, c);
     if (this.autoActive()) for (const [t, v] of this.automation.targetsOn('channel', c.id)) setPath(c, t.path, v);
+    // an Audio Clip channel plays through the audio clips of the Playlist (AudioClips.ts) and has no notes
+    if (c.kind === 'audioclip') {
+      const old = this.channels.get(c.id);
+      if (old) { this.channels.delete(c.id); this.retireChannel(old); this.dirtyPatterns = true; }
+      if (this.midiOuts.has(c.id)) { this.retireMidiOut(c.id); this.dirtyPatterns = true; }
+      if (this.layers.has(c.id)) { this.retireLayer(c.id); this.dirtyPatterns = true; }
+      this.audio.setChannel(c, this.samples);
+      if (!this.channelOrder.includes(c.id)) this.channelOrder.push(c.id);
+      return;
+    }
+    if (this.audio.has(c.id)) this.audio.removeChannel(c.id);
     // a channel that is no longer a layer releases the live notes it handed on
     if (c.kind !== 'layer' && this.layers.has(c.id)) { this.retireLayer(c.id); this.dirtyPatterns = true; }
     if (c.kind === 'layer') {
@@ -481,7 +514,7 @@ export class Engine {
       const m = this.chModels.get(id);
       const ch = this.channels.get(id);
       if (m && ch) ch.apply(m, this.samples);
-      else if (m) { this.midiOuts.get(id)?.apply(m); this.layers.get(id)?.apply(m); }
+      else if (m) { this.midiOuts.get(id)?.apply(m); this.layers.get(id)?.apply(m); this.audio.apply(m, this.samples); }
     }
     for (const i of this.dirtyMx) {
       const m = this.mxModels[i];
@@ -503,11 +536,13 @@ export class Engine {
 
   pause(): void {
     this.playing = false;
+    this.rec.transportStopped();
     this.releaseAll();
   }
 
   stop(): void {
     this.playing = false;
+    this.rec.transportStopped();
     this.releaseAll();
     this.pos = this.songMode ? this.loopStartTick() : 0;
   }
@@ -516,6 +551,7 @@ export class Engine {
     for (const ly of this.layers.values()) ly.allNotesOff();
     for (const ch of this.channels.values()) ch.allNotesOff(false);
     for (const mo of this.midiOuts.values()) mo.allNotesOff();
+    this.audio.stopAll(0, 10); // audio clips fade out (stop, pause, seek, mode change)
   }
 
   // ------------------------------------------------------------------- render
@@ -573,7 +609,7 @@ export class Engine {
     let guard = 0;
     if (this.pendingTruncated) {
       this.pendingTruncated = false;
-      if (this.songMode) collectSongSounding(this.clips, this.patterns, this.pos, 0, this.dispatch);
+      if (this.songMode) { collectSongSounding(this.clips, this.patterns, this.pos, 0, this.dispatch); this.audio.startSounding(this.pos, 0, fpt); }
       else {
         const cp = this.patterns.get(this.patternId);
         if (cp && this.pos > 0) collectSounding(cp, this.pos, 0, this.dispatch);
@@ -583,7 +619,7 @@ export class Engine {
       let loopStart: number, loopEnd: number;
       if (this.songMode) {
         if (this.loopEnd > this.loopStart) { loopStart = this.loopStart; loopEnd = this.loopEnd; }
-        else { loopStart = 0; loopEnd = this.songLen; }
+        else { loopStart = 0; loopEnd = this.rec.runsPastSongEnd ? 1e12 : this.songLen; } // recording runs on past the song's end
       } else {
         loopStart = 0;
         loopEnd = this.currentPatternLength();
@@ -598,6 +634,7 @@ export class Engine {
       const t1 = Math.min(loopEnd, t0 + seg / fpt);
       if (this.songMode) {
         collectSongWindow(this.clips, this.patterns, t0, t1, frame, fpt, this.dispatch, this.repeatClips);
+        this.audio.startWindow(t0, t1, frame, fpt);
       } else {
         const cp = this.patterns.get(this.patternId);
         if (cp) collectPatternWindow(cp, t0, t1, frame, fpt, this.dispatch);
@@ -607,6 +644,12 @@ export class Engine {
       if (this.pos >= loopEnd - 1e-7) {
         const over = this.pos - loopEnd;
         this.pos = over > 1e-7 ? loopStart + over : loopStart;
+        if (this.rec.active) this.rec.onWrap(frame + (loopEnd - t0) * fpt, loopStart, loopEnd);
+        // the loop wraps: audio clips still sounding are cut at the loop end, those under way at the loop start take over
+        if (this.songMode) {
+          this.audio.stopAll(frame + seg, 10);
+          if (loopStart > 0) this.audio.startSounding(loopStart, frame + seg, fpt);
+        }
         if (this.songMode && loopStart > 0) collectSongSounding(this.clips, this.patterns, loopStart, frame + seg, this.dispatch);
         if (over > 1e-7) {
           // The loop end fell between two frames, so this segment ran past it by a fraction of a
@@ -615,6 +658,7 @@ export class Engine {
           const f0 = frame + (loopEnd - t0) * fpt;
           if (this.songMode) {
             collectSongWindow(this.clips, this.patterns, loopStart, loopStart + over, f0, fpt, this.dispatch, this.repeatClips);
+            this.audio.startWindow(loopStart, loopStart + over, f0, fpt);
           } else {
             const cp = this.patterns.get(this.patternId);
             if (cp) collectPatternWindow(cp, loopStart, loopStart + over, f0, fpt, this.dispatch);
@@ -627,6 +671,16 @@ export class Engine {
   }
 
   private metroQueue: { frame: number; accent: boolean }[] = [];
+
+  /** A metronome click at `frame` frames from the start of the next block (the recording count-in). */
+  queueClick(frame: number, accent: boolean): void {
+    this.metroQueue.push({ frame, accent });
+  }
+
+  /** Drop the clicks still waiting (a count-in that was cancelled). */
+  clearClicks(): void {
+    this.metroQueue = [];
+  }
 
   private scheduleMetronome(t0: number, t1: number, frameAtT0: number, fpt: number): void {
     const ppq = this.globals.ppq;
@@ -658,13 +712,35 @@ export class Engine {
     this.metroQueue = rest;
   }
 
-  /** Render `n` frames (n <= blockSize) into outL / outR. */
-  process(outL: Float32Array, outR: Float32Array, n: number): void {
+  /**
+   * Render `n` frames (n <= blockSize) into outL / outR. `input` holds the audio device's input
+   * channels for these frames (one array per channel; undefined: no input device).
+   * A running recording session can cut the block in two where its transport, take or capture
+   * starts or ends, so that this happens on the exact frame (Recording.ts).
+   */
+  process(outL: Float32Array, outR: Float32Array, n: number, input?: Float32Array[]): void {
+    const rc = this.rec;
+    if (!rc.active) { this.renderSegment(outL, outR, n, input); return; }
+    let off = 0;
+    while (off < n) {
+      const left = n - off;
+      const k = rc.plan(left, input, off);
+      const seg = k > 0 && k < left ? k : left;
+      if (off === 0 && seg === n) this.renderSegment(outL, outR, n, input);
+      else {
+        this.renderSegment(outL.subarray(off, off + seg), outR.subarray(off, off + seg), seg, input ? input.map((c) => c.subarray(off, off + seg)) : undefined);
+      }
+      off += seg;
+    }
+  }
+
+  private renderSegment(outL: Float32Array, outR: Float32Array, n: number, input?: Float32Array[]): void {
     const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const statusTick = this.pos;
     if (this.playing) this.scheduleBlock(n);
     this.collectNotes(n);
     if (this.noteCount) this.deliverPortNotes();
+    this.mixer.setInput(input ?? null);
     this.mixer.beginBlock(n);
     const gc = this.genCtx;
     gc.tempo = this.globals.tempo; gc.ppq = this.globals.ppq; gc.playing = this.playing; gc.pos = statusTick; gc.songMode = this.songMode;
@@ -678,6 +754,8 @@ export class Engine {
       for (const r of this.retiredChannels) { if (r.ch.isActive()) this.renderChannel(r.ch, n); r.left -= n; }
       this.retiredChannels = this.retiredChannels.filter((r) => r.left > 0 && r.ch.isActive());
     }
+    // Audio Clip channels: the audio clips that sound reach their mixer tracks
+    if (this.audio.isActive()) this.audio.render(n, this.samplesPerTick(), this.audioToMixer);
     this.mixer.setTransport(this.globals.tempo, this.globals.ppq, this.playing, statusTick, this.songMode);
     // MIDI Out notes reach the effects listening on their ports, sample-accurately
     this.mixer.deliverNotes(this.noteBus, this.noteCount, n);
@@ -729,6 +807,14 @@ export class Engine {
       }
     }
   }
+
+  /** Adds an Audio Clip channel's block to its mixer track's channel input. */
+  private audioToMixer = (track: number, L: Float32Array, R: Float32Array, n: number): void => {
+    const tr = this.mixer.tracks[track] ?? this.mixer.tracks[0];
+    const dl = tr.chL, dr = tr.chR;
+    for (let i = 0; i < n; i++) { dl[i] += L[i]; dr[i] += R[i]; }
+    tr.hasChannelInput = true;
+  };
 
   /** Render an instrument channel into its mixer track's channel input. */
   private renderChannel(ch: InstrumentChannel, n: number): void {
@@ -825,12 +911,13 @@ export class Engine {
       if (!ch) {
         const mo = this.midiOuts.get(id);
         if (mo) chPeaks[i] = mo.takePeak();
-        else chPeaks[i] = this.layers.get(id)?.takePeak() ?? 0;
+        else chPeaks[i] = this.layers.get(id)?.takePeak() ?? this.audio.takePeak(id);
         return;
       }
       chPeaks[i] = ch.takePeak();
       voices += ch.voiceCount();
     });
+    voices += this.audio.voiceCount();
     if (this.fxStatePending.length) {
       this.post({ t: 'fxState', items: this.fxStatePending });
       this.fxStatePending = [];
@@ -989,13 +1076,13 @@ export class Engine {
     }
   }
 
-  /** Convenience for offline rendering / tests. */
-  renderOffline(frames: number): [Float32Array, Float32Array] {
+  /** Convenience for offline rendering / tests. `input`: the audio device's input channels, `frames` long each, played from the start. */
+  renderOffline(frames: number, input?: Float32Array[]): [Float32Array, Float32Array] {
     const L = new Float32Array(frames), R = new Float32Array(frames);
     const bL = new Float32Array(this.blockSize), bR = new Float32Array(this.blockSize);
     for (let off = 0; off < frames; off += this.blockSize) {
       const n = Math.min(this.blockSize, frames - off);
-      this.process(bL, bR, n);
+      this.process(bL, bR, n, input?.map((c) => c.subarray(off, off + n)));
       L.set(bL.subarray(0, n), off);
       R.set(bR.subarray(0, n), off);
     }
@@ -1003,6 +1090,12 @@ export class Engine {
   }
 
   getMixerTrack(i: number): MixerTrack | undefined { void i; return undefined; }
+
+  /** The engine's copy of a mixer track's model (as last received, automation applied). */
+  trackModel(i: number): MixerTrack | undefined { return this.mxModels[i]; }
+
+  /** The mixer tracks armed for recording, in track order. */
+  armedTrackModels(): MixerTrack[] { return armedModels(this.mxModels); }
 }
 
 /** Write a value at a dotted path inside a plugin state (creating the last key). */

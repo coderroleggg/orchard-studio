@@ -13,6 +13,7 @@ import type { FxParams } from './fx/types';
 import type { AutomationChannel, InitControl } from './automation';
 import type { ControllerLink } from './links';
 import type { ChannelPlugin } from './gen/types';
+import type { MonitorMode, RecPickup, TrackInput } from './recording';
 
 export type Id = string;
 
@@ -48,10 +49,13 @@ export interface Pattern {
  * Channel generator: 'sampler' (the Sampler), 'midiout' (FL's MIDI Out: no
  * sound, its notes go out on a MIDI port to the effects listening on it),
  * 'plugin' (an instrument plugin, Channel.plugin; see docs/gen-framework.md)
- * or 'layer' (FL's Layer: no sound, its notes play its child channels;
- * Channel.layer, see docs/research/layer.md).
+ * 'layer' (FL's Layer: no sound, its notes play its child channels;
+ * Channel.layer, see docs/research/layer.md) or 'audioclip' (FL's Audio Clip
+ * channel: a Sampler-like channel that holds one pool sample in
+ * `sampler.sampleId` and sounds only through the 'audio' clips that refer to
+ * it in the Playlist; it has no notes. See docs/audio-clips.md).
  */
-export type ChannelKind = 'sampler' | 'midiout' | 'plugin' | 'layer';
+export type ChannelKind = 'sampler' | 'midiout' | 'plugin' | 'layer' | 'audioclip';
 
 export interface Channel {
   id: Id;
@@ -90,25 +94,40 @@ export interface PlaylistTrack {
 export interface Clip {
   id: Id;
   track: number; // playlist track index
-  kind: 'pattern' | 'automation';
-  patternId: Id; // pattern clips ('' for automation clips)
+  kind: 'pattern' | 'automation' | 'audio';
+  patternId: Id; // pattern clips ('' for automation and audio clips)
   autoId?: Id; // automation clips: the automation channel
+  /** Audio clips: the Audio Clip channel (Channel.kind 'audioclip') whose sample the clip plays. */
+  channelId?: Id;
   start: number; // ticks
   length: number; // ticks
-  offset: number; // ticks into the pattern
+  offset: number; // ticks into the pattern; audio clips: ticks into the sample as the channel plays it (slip)
   muted: boolean;
+  // ---- audio clips only (FL 21+: fade handles and gain on each clip; model/audioclip.ts)
+  /** Fade in / out length in ticks (0 / undefined: none apart from the channel's declick). */
+  fadeIn?: number;
+  fadeOut?: number;
+  /** Fade curve tension -1..1 (0 / undefined: linear). */
+  fadeInTension?: number;
+  fadeOutTension?: number;
+  /** Clip gain in dB (0 / undefined: unity). */
+  gain?: number;
 }
 
 export interface Marker {
   id: Id;
   pos: number;
   name: string;
+  /** FL's "Start recording" / "Stop recording" time markers (Punch in / out before FL 21): recording starts / stops when the playhead reaches them. */
+  kind?: 'recStart' | 'recStop';
 }
 
 export interface Playlist {
   tracks: PlaylistTrack[];
   clips: Clip[];
   markers: Marker[];
+  /** Overlapping audio clips on a track crossfade over the overlap (FL: "Automatic crossfades (current project)"; absent = off). */
+  autoCrossfades?: boolean;
 }
 
 /** Effect plugin id (see src/model/fx/plugins). */
@@ -145,6 +164,21 @@ export interface MixerTrack {
   fxEnabled: boolean; // FX master switch (bypasses all slots when off)
   /** Built-in 3-band EQ: low shelf, peaking, high shelf. */
   eq: MixerEqBand[];
+  // ---- audio input and recording (model/recording.ts, docs/recording.md); all optional, absent = FL's default
+  /** Input selector: the audio device channels feeding the track (absent: none). */
+  input?: TrackInput;
+  /** "Arm disk recording". */
+  armed?: boolean;
+  /** Recording pickup point (default EXT). */
+  pickup?: RecPickup;
+  /** "Monitor external input" (default When armed). */
+  monitor?: MonitorMode;
+  /** Manual input delay compensation in ms (positive: the recording moves earlier). */
+  inputDelay?: number;
+  /** "Adjust position of recorded audio": also compensate the plugin delay compensation of the playback chain (default on). */
+  inputAdjust?: boolean;
+  /** Name of the recorded audio (the arm button's right-click; absent: the track name). */
+  recordName?: string;
 }
 
 export interface MixerEqBand {

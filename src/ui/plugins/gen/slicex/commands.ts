@@ -4,9 +4,14 @@
 // without undo, regions and audio as undo steps.
 
 import { store } from '../../../../store';
+import * as AC from '../../../../store/audioClipActions';
+import { addRaw, storeUserSample } from '../../../../audio/samples';
+import { uid } from '../../../../model/defaults';
+import { flashHint } from '../../../hint';
+import type { SampleInfo } from '../../../../model/types';
 import type { SxDeck, SxRegion } from '../../../../model/gen/plugins/slicex/types';
 import {
-  CLICK_FREE_S, deleteRange, fadeInRange, fadeOutRange, declickIn, declickOut, insertSilence, invertRange, normalizeRange, removeDC,
+  CLICK_FREE_S, copyRange, deleteRange, fadeInRange, fadeOutRange, declickIn, declickOut, insertSilence, invertRange, normalizeRange, removeDC,
   reverseRange, silenceRange, swapChannels, toMono, toStereo, trimTo, type Chans,
 } from '../../fx/edison/ops';
 import { encodeEdisonWav } from '../../fx/edison/wav';
@@ -433,3 +438,42 @@ export function undoTo(k: number): void {
 export const toggleSpec = (slotId: string) => view(slotId, 'Spectrum', (q) => { q.vSpec = q.vSpec ? 0 : 1; });
 export const setSnap = (slotId: string, k: number) => view(slotId, 'Snap', (q) => { q.vSnap = k; });
 export const toggleDual = (slotId: string) => setViewOption(slotId, 'dual', !cur(slotId).v.dual, 'Display single / dual deck');
+
+// ------------------------------------------------------------------ sequencing (Tools > Sequencing)
+
+/** The selection (or the whole sample) of the current deck as a new pool sample; the deck's own sample when it is all of it. */
+function selectionSample(slotId: string): SampleInfo | string | null {
+  const c = cur(slotId);
+  const r = selOrAll(slotId);
+  const id = c.p[c.d ? 'sampleB' : 'sampleA'];
+  if (!c.audio || !r || typeof id !== 'string') return null;
+  if (r[0] <= 0 && r[1] >= c.n - 1) return id;
+  const ch = copyRange(c.audio.channels.map((x) => x), r[0], r[1] + 1);
+  const name = c.deck.title || 'Slicex';
+  const nid = uid('s');
+  addRaw({ id: nid, name, channels: ch, sampleRate: c.audio.sampleRate });
+  void storeUserSample(nid, encodeEdisonWav(ch, c.audio.sampleRate, 32));
+  return { id: nid, name, frames: ch[0].length, sampleRate: c.audio.sampleRate, channels: ch.length, source: { kind: 'user', key: nid } };
+}
+
+/** Send to Playlist as audio clip (Shift+C): the selection becomes an Audio Clip at the time selection / playhead. */
+export function sendToPlaylist(slotId: string): void {
+  const s = selectionSample(slotId);
+  if (s) AC.sendToPlaylist(s, cur(slotId).deck.title || undefined);
+}
+
+/** Send to selected channel: the selection replaces the selected Sampler channel's sample. */
+export function sendToChannel(slotId: string): void {
+  const chId = store.ui.selectedChannels[0];
+  if (!chId) { flashHint('Slicex: no channel selected'); return; }
+  const s = selectionSample(slotId);
+  if (!s) return;
+  const info = typeof s === 'string' ? store.project.samples[s] : s;
+  if (!info) return;
+  store.update('Send to selected channel', (d) => {
+    d.samples[info.id] = info;
+    const ch = d.channels.find((x) => x.id === chId);
+    if (ch) { ch.sampler.sampleId = info.id; ch.name = info.name; }
+  });
+  flashHint(`Slicex: sent to ${store.project.channels.find((x) => x.id === chId)?.name ?? 'channel'}`);
+}

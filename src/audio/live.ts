@@ -20,6 +20,8 @@ export interface LiveState {
   anchorTime: number; // performance.now() when anchor was received
   ticksPerSecond: number;
   latencySec: number;
+  /** Audio recording (audio/Recorder.ts): the state of the session, where it started (ticks) and how much was recorded so far. */
+  rec: { state: 'idle' | 'countdown' | 'waiting' | 'recording'; tick0: number; frames: number; sampleRate: number; tracks: number[] };
   version: number;
 }
 
@@ -38,6 +40,7 @@ export const live: LiveState = {
   anchorTime: 0,
   ticksPerSecond: 0,
   latencySec: 0,
+  rec: { state: 'idle', tick0: 0, frames: 0, sampleRate: 44100, tracks: [] },
   version: 0,
 };
 

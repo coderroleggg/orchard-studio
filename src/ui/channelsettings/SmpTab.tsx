@@ -102,14 +102,17 @@ export function SmpTab({ ch }: { ch: Channel }) {
               set={(v) => set('Load slice markers', (d) => { d.loadSliceMarkers = v; })} />
           </div>
         </Section>
-        <Section title="Playback" className="fixed">
-          <KnobCell cap="START" label="Start offset" auto={chAuto(id, 'sampler.startOffset')} value={s.startOffset} def={D.startOffset} format={withTime}
-            set={(v) => set('Start offset', (d) => { d.startOffset = Math.min(0.9999, v); })} />
-          <div className="cs-col">
-            <Toggle on={s.useLoopPoints} label="Use loop points" name="Use loop points" set={(v) => set('Use loop points', (d) => { d.useLoopPoints = v; })} />
-            <Toggle on={s.pingPong} label="Ping pong loop" name="Ping pong loop" set={(v) => set('Ping pong loop', (d) => { d.pingPong = v; })} />
-          </div>
-        </Section>
+        {/* an Audio Clip plays its sample once through each clip: the clip sets where it starts and ends, no start offset or loop */}
+        {ch.kind !== 'audioclip' && (
+          <Section title="Playback" className="fixed">
+            <KnobCell cap="START" label="Start offset" auto={chAuto(id, 'sampler.startOffset')} value={s.startOffset} def={D.startOffset} format={withTime}
+              set={(v) => set('Start offset', (d) => { d.startOffset = Math.min(0.9999, v); })} />
+            <div className="cs-col">
+              <Toggle on={s.useLoopPoints} label="Use loop points" name="Use loop points" set={(v) => set('Use loop points', (d) => { d.useLoopPoints = v; })} />
+              <Toggle on={s.pingPong} label="Ping pong loop" name="Ping pong loop" set={(v) => set('Ping pong loop', (d) => { d.pingPong = v; })} />
+            </div>
+          </Section>
+        )}
         <Section title="Declicking">
           <div className="cs-col cs-fill">
             <Choice value={s.declick} options={DECLICK_OPTIONS} name="Declicking" onSelect={(v) => set('Declicking', (d) => { d.declick = v; })} />

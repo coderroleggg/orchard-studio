@@ -206,3 +206,42 @@
 .mx-eq-bands { display: flex; justify-content: space-around; }
 .mx-eq-band { display: flex; gap: 3px; align-items: center; }
 .mx-eq-knobs { display: flex; flex-direction: column; gap: 4px; }
+
+/* recording: arm button, input row */
+.mx-fxrow { display: flex; align-items: center; gap: 3px; }
+
+.mx-arm {
+  width: 15px;
+  height: 12px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #23282c;
+  border-radius: 2px;
+  background: #2a3034;
+  color: #5a3a3a;
+  cursor: default;
+}
+
+.mx-arm:hover { color: #b04a4a; }
+.mx-arm.on { color: #ff4a3a; background: #3a2a2a; border-color: #7a2a24; }
+
+.mx-ins-in .combo { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
+.mx-ins-in .mx-pick { flex: none; width: 38px; text-align: center; color: var(--text); }
+.mx-ins-in .mx-in { flex: 1; color: var(--text-bright); }
+
+.mx-idc {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  color: var(--text-dark);
+  cursor: default;
+}
+
+.mx-idc:hover { color: var(--text-bright); }
+.mx-idc.on { color: #5fa8ff; }

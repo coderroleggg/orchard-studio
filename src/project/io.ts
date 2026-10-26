@@ -7,6 +7,7 @@ import { createDefaultProject, normalizeProject } from '../model/defaults';
 import { loadBuiltins, decodeFile, ensureSample, getRaw, loadUserSample, prepareSample, addRaw } from '../audio/samples';
 import { Engine } from '../engine/Engine';
 import { engineSamplesFor } from '../audio/engineSamples';
+import { prepareAudioClipSample } from '../audio/audioClipSample';
 import { ticksPerBar } from '../model/timing';
 import { patternLength } from '../store/actions';
 import { flashHint } from '../ui/hint';
@@ -148,6 +149,27 @@ export async function importSampleFiles(files?: File[]): Promise<void> {
   }
 }
 
+/**
+ * Audio files dropped on the Playlist (or sent to it): each becomes an Audio
+ * Clip, an Audio Clip channel and a clip at `start` ticks, one track below the
+ * other from `track`. Returns the new clips' ids.
+ */
+export async function importAudioClipFiles(files: File[], start: number, track?: number): Promise<Id[]> {
+  const ids: Id[] = [];
+  let t = track;
+  for (const f of files) {
+    try {
+      const { info } = await decodeFile(f, f.name.replace(/\.[^.]+$/, ''), host.ctx ?? undefined);
+      const r = A.addAudioClip(info.id, start, { track: t, name: info.name });
+      ids.push(r.clipId);
+      if (t !== undefined) t = Math.min(store.project.playlist.tracks.length - 1, t + 1);
+    } catch {
+      flashHint(`Could not decode ${f.name}`);
+    }
+  }
+  return ids;
+}
+
 /** Load an audio file into an existing channel (drag & drop onto a channel). */
 export async function loadSampleIntoChannel(channelId: Id, f: File): Promise<void> {
   try {
@@ -155,8 +177,8 @@ export async function loadSampleIntoChannel(channelId: Id, f: File): Promise<voi
     store.update('Load sample', (d) => {
       d.samples[info.id] = info;
       const c = d.channels.find((x) => x.id === channelId);
-      // a sample dropped on a MIDI Out, Layer or instrument channel makes it a Sampler channel
-      if (c) { c.sampler.sampleId = info.id; c.name = info.name; c.kind = 'sampler'; delete c.midiOut; delete c.plugin; delete c.layer; }
+      // a sample dropped on a MIDI Out, Layer or instrument channel makes it a Sampler channel (an Audio Clip channel stays one)
+      if (c) { c.sampler.sampleId = info.id; c.name = info.name; if (c.kind !== 'audioclip') c.kind = 'sampler'; delete c.midiOut; delete c.plugin; delete c.layer; }
     });
   } catch {
     flashHint(`Could not decode ${f.name}`);
@@ -194,8 +216,9 @@ export async function exportWav(): Promise<void> {
     const s = c.sampler;
     // MIDI Out channels make no sound (their notes reach the effects listening on their ports);
     // instrument plugin channels render their own sound (with FL's export flag, GenContext.rendering)
-    if (s.sampleId && c.kind === 'sampler') {
-      const prep = prepareSample(s.sampleId, s, sr);
+    // an Audio Clip channel plays the same stretched sample as live (src/audio/audioClipSample.ts)
+    if (s.sampleId && (c.kind === 'sampler' || c.kind === 'audioclip')) {
+      const prep = c.kind === 'audioclip' ? prepareAudioClipSample(c, p.tempo, sr) : prepareSample(s.sampleId, s, sr);
       if (prep) {
         key = prep.key;
         if (!sent.has(key)) { e.handle({ t: 'sample', id: key, data: prep.data, sampleRate: prep.sampleRate }); sent.add(key); }
@@ -206,7 +229,7 @@ export async function exportWav(): Promise<void> {
   for (const pat of p.patterns) e.handle({ t: 'pattern', p: pat });
   e.handle({ t: 'automation', list: p.automation ?? [], init: p.initControls ?? [] });
   e.handle({ t: 'links', list: structuredClone(p.links ?? []) });
-  e.handle({ t: 'playlist', tracks: p.playlist.tracks, clips: p.playlist.clips, repeatClips: !!p.repeatClips });
+  e.handle({ t: 'playlist', tracks: p.playlist.tracks, clips: p.playlist.clips, repeatClips: !!p.repeatClips, autoCrossfades: !!p.playlist.autoCrossfades });
   const song = p.songMode && p.playlist.clips.length > 0;
   e.handle({ t: 'mode', song, patternId: p.currentPatternId });
   let lenTicks: number;

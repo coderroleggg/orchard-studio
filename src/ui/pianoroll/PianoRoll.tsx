@@ -127,7 +127,7 @@ function ChannelPicker({ channel, channels }: { channel: Channel | null; channel
     <span className="pr-ch" onPointerDown={(e) => {
       e.stopPropagation();
       const r = e.currentTarget.getBoundingClientRect();
-      openMenu(r.left, r.bottom, channels.map((c) => ({ label: c.name, checked: c.id === channel?.id, radio: true, onClick: () => A.openPianoRoll(c.id) })));
+      openMenu(r.left, r.bottom, channels.filter((c) => c.kind !== 'audioclip').map((c) => ({ label: c.name, checked: c.id === channel?.id, radio: true, onClick: () => A.openPianoRoll(c.id) }))); // an Audio Clip channel has no notes
     }}>
       {channel?.name ?? '-'} <IconArrowDown size={9} />
     </span>

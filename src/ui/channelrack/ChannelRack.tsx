@@ -17,7 +17,11 @@ import { IconAutomation, IconPlus } from '../widgets/Icons';
 import type { AutomationChannel } from '../../model/automation';
 import { addSampleChild, importSampleFiles, loadSampleIntoChannel } from '../../project/io';
 import { mixerTrackName } from '../../model/defaults';
+import { AUDIO_CLIP_VOLUME_DEFAULT, STRETCH_MODE_LABELS } from '../../model/audioclip';
+import * as AC from '../../store/audioClipActions';
+import type { StretchMode } from '../../model/sampler';
 import { GraphEditor } from './GraphEditor';
+import { AudioPreview } from './AudioPreview';
 import { channelGenerator, generatorMenuItems } from '../plugins/genMenu';
 import { layerMenuItems, pressSetChildren } from '../channelsettings/layerMenu';
 import { genDef } from '../../model/gen/registry';
@@ -147,6 +151,14 @@ export function ChannelRack() {
           label: 'Create layer with selected channels',
           onClick: () => { if (store.ui.selectedChannels.length) A.createLayerWithSelected(); else alert('Select one or more channels to create a layer.'); },
         },
+        { separator: true },
+        // FL's Channel Rack options: the stretch mode of all / the selected Audio Clip channels
+        { label: 'Switch all audio clip channels to', disabled: !channels.some((c) => c.kind === 'audioclip'), submenu: (Object.keys(STRETCH_MODE_LABELS) as StretchMode[]).map((m): MenuItem => ({
+          label: STRETCH_MODE_LABELS[m], onClick: () => AC.setStretchMode('all', m),
+        })) },
+        { label: 'Switch selected audio clip channels to', disabled: !channels.some((c) => c.kind === 'audioclip' && store.ui.selectedChannels.includes(c.id)), submenu: (Object.keys(STRETCH_MODE_LABELS) as StretchMode[]).map((m): MenuItem => ({
+          label: STRETCH_MODE_LABELS[m], onClick: () => AC.setStretchMode(store.ui.selectedChannels, m),
+        })) },
       ]}>
       <div
         ref={bodyRef}
@@ -249,6 +261,28 @@ const ChannelRow = memo(function ChannelRow({ channel: c, index, notes, steps, t
 
   // `before` is the selection as it was when the menu was asked for (the right-click selects the channel)
   const nameMenu = (x: number, y: number, before: readonly string[] = []) => {
+    if (c.kind === 'audioclip') {
+      // an Audio Clip channel has no notes or steps: its settings, its clips and its routing
+      openMenu(x, y, [
+        { header: true, label: c.name },
+        { label: 'Channel settings', onClick: () => A.openChannelSettings(c.id) },
+        { label: 'Preview', onClick: () => host.preview(c.id, 60, 100, 100) },
+        { label: 'Rename...', shortcut: 'F2', onClick: () => { const n = prompt('Channel name', c.name); if (n) A.setChannel(c.id, 'name', n, 'Rename channel'); } },
+        { label: 'Select clips in the playlist', onClick: () => {
+          A.setUi((u) => { u.playlist.selected = store.project.playlist.clips.filter((k) => k.kind === 'audio' && k.channelId === c.id).map((k) => k.id); });
+          A.openWindow('playlist');
+        } },
+        { separator: true },
+        { label: 'Clone', onClick: () => A.cloneChannel(c.id) },
+        { label: 'Delete...', onClick: () => A.deleteChannels(store.ui.selectedChannels.includes(c.id) ? store.ui.selectedChannels : [c.id]) },
+        { separator: true },
+        { label: 'Move up', shortcut: 'Alt+Up', onClick: () => A.moveChannels([c.id], -1) },
+        { label: 'Move down', shortcut: 'Alt+Down', onClick: () => A.moveChannels([c.id], 1) },
+        { separator: true },
+        { label: 'Route to mixer track', submenu: routeItems(c) },
+      ], { minWidth: 170 });
+      return;
+    }
     const items: MenuItem[] = [
       { header: true, label: c.name },
       { label: 'Piano roll', onClick: () => A.openPianoRoll(c.id) },
@@ -296,7 +330,7 @@ const ChannelRow = memo(function ChannelRow({ channel: c, index, notes, steps, t
           // Shift: on a layer the sample becomes a new child channel of it (FL 2024)
           if (c.kind === 'layer' && e.shiftKey) { A.addLayerChild(c.id, info?.name ?? 'Sampler', sid); return; }
           // a sample dropped on a MIDI Out, Layer or instrument channel makes it a Sampler channel
-          store.update('Load sample', (d) => { const ch = d.channels.find((x) => x.id === c.id); if (ch) { ch.sampler.sampleId = sid; ch.name = info?.name ?? ch.name; ch.kind = 'sampler'; delete ch.midiOut; delete ch.plugin; delete ch.layer; } });
+          store.update('Load sample', (d) => { const ch = d.channels.find((x) => x.id === c.id); if (ch) { ch.sampler.sampleId = sid; ch.name = info?.name ?? ch.name; if (ch.kind !== 'audioclip') ch.kind = 'sampler'; delete ch.midiOut; delete ch.plugin; delete ch.layer; } });
           return;
         }
         const f = [...e.dataTransfer.files][0];
@@ -318,7 +352,7 @@ const ChannelRow = memo(function ChannelRow({ channel: c, index, notes, steps, t
         auto={{ scope: 'channel', id: c.id, path: 'pan' }}
         onBegin={() => store.beginGesture('Channel panning')} onEnd={() => store.endGesture()}
         onChange={(v) => A.setChannel(c.id, 'pan', v, 'Channel panning')} />
-      <Knob size={18} value={c.volume} defaultValue={CHANNEL_VOLUME_DEFAULT} label={`${c.name} - Volume`}
+      <Knob size={18} value={c.volume} defaultValue={c.kind === 'audioclip' ? AUDIO_CLIP_VOLUME_DEFAULT : CHANNEL_VOLUME_DEFAULT} label={`${c.name} - Volume`}
         auto={{ scope: 'channel', id: c.id, path: 'volume' }}
         format={(v) => `${Math.round(v * 100)}% (${formatDb(20 * Math.log10(Math.max(1e-9, channelVolumeToGain(v))))})`}
         onBegin={() => store.beginGesture('Channel volume')} onEnd={() => store.endGesture()}
@@ -338,6 +372,8 @@ const ChannelRow = memo(function ChannelRow({ channel: c, index, notes, steps, t
         onWheel={(e) => { if (e.shiftKey) { A.moveChannels(store.ui.selectedChannels.includes(c.id) ? store.ui.selectedChannels : [c.id], e.deltaY > 0 ? 1 : -1); } }}
         onPointerEnter={() => setHint(c.kind === 'midiout'
           ? `${c.name} - MIDI Out on port ${c.midiOut?.port ?? 0}: click to show settings, Ctrl+click to preview, right-click for options`
+          : c.kind === 'audioclip'
+            ? `${c.name} - audio clip: click to show the settings, Ctrl+click to preview, right-click for options`
           : c.kind === 'layer'
             ? `${c.name} - Layer of ${c.layer?.children.length ?? 0} channel${c.layer?.children.length === 1 ? '' : 's'}: click to show settings, Shift+click to select the layered channels, Ctrl+click to preview, right-click for options`
             : c.kind === 'plugin'
@@ -358,7 +394,9 @@ const ChannelRow = memo(function ChannelRow({ channel: c, index, notes, steps, t
         onPointerEnter={() => setHint(`${c.name} - select (right-click: toggle, double-click: select all)`)} onPointerLeave={clearHint}>
         <ActivityBar channelId={c.id} />
       </div>
-      {stepOnly ? (
+      {c.kind === 'audioclip' ? (
+        <AudioPreview channel={c} />
+      ) : stepOnly ? (
         <StepRow channelId={c.id} notes={notes} steps={steps} tps={tps} patternId={patternId} barSteps={barSteps} index={index} />
       ) : (
         <NotePreview channelId={c.id} notes={notes ?? []} steps={steps} lenTicks={lenTicks} />

@@ -116,6 +116,14 @@ analyzer data.
   presets, display data and automation; VFX modules get notes. As an
   instrument in the Channel Rack it hosts instruments too, played by the
   channel's notes.
+- **Audio clips:** a sample dropped on the Playlist becomes an Audio Clip
+  channel and clip, edited as in FL (trim, slip, slice, Chop, fades and gain,
+  the clip menu, stretch on resize) and played sample-accurately through the
+  channel's sample settings and mixer track ([docs/audio-clips.md](docs/audio-clips.md)).
+- **Audio recording:** choose an input device in Audio settings and an input
+  per mixer track, arm tracks and record into the Playlist as audio clips or
+  into Edison, with FL's countdown, loop recording, recording markers and
+  latency compensation ([docs/recording.md](docs/recording.md)).
 - **Link to controller:** the outputs of Peak Controller, Formula Controller,
   X-Y / X-Y-Z Controller and Control Surface drive any automatable control
   through FL's *Remote control settings* dialog, with FL's mapping formulas.
@@ -192,14 +200,19 @@ analyzer data.
   (-3 .. -8 dB residual).
 - Instruments (details per plugin in [docs/gen-fidelity.md](docs/gen-fidelity.md)):
   FL's other stock instruments are not implemented: DirectWave, FL Studio
-  Mobile (and its Rack), FLEX and the Audio Clip channel.
+  Mobile (and its Rack) and FLEX.
   Of the implemented ones, Sawer, GMS and Sakura could not be compared with FL (its
   licence check silences them in the test host), Harmor plays image /
   resynthesis presets without their image layer, the Slicers' élastique
   stretch modes are approximated, and instruments built on FL's sample
   content play substitutes until that content is imported.
+- Audio clips and recording: time-stretch modes other than Resample are our
+  own stand-ins for élastique (no Stretch pro or e2 modes); the clip pan law,
+  fade shapes and gain range are inferred (FL's manual could not be reached);
+  recording latency uses the browser's estimates (each track has an input
+  delay to tune), and Record doesn't start playback by default.
 - Not yet implemented: event automation (*Edit events*) and automation
   recording, the envelope tools' dialogs (Scale levels,
-  Filter, Smooth up, Create sequence, Analyze audio file), audio clips,
-  recording (audio/MIDI), time markers and channel looping. Time-stretch modes
-  other than Resample are also missing.
+  Filter, Smooth up, Create sequence, Analyze audio file), note (MIDI)
+  recording, time markers and channel looping, and audio clip variants,
+  ripple edit and consolidate.

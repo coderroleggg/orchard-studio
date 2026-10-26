@@ -115,6 +115,11 @@ export function toolsMenu({ slotId }: MenuCtx): MenuItem[] {
     go('Declick out all regions', () => C.declickOutRegions(slotId), undefined, rg),
     go('Perfect all regions', () => C.perfectRegions(slotId), undefined, rg),
     off('Tune loop...', 'Ctrl+L'),
+    hdr('Analysis'),
+    off('Convert to score and dump to piano roll'),
+    hdr('Sequencing'),
+    go('Send to Playlist as audio clip', () => C.sendToPlaylist(slotId), 'Shift+C'),
+    go('Send to selected channel', () => C.sendToChannel(slotId)),
   ];
 }
 

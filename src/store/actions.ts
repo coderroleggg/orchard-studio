@@ -2,10 +2,12 @@
 
 import type { Draft } from 'immer';
 import { store, host } from './index';
-import type { Channel, Clip, FxSlot, Id, MixerTrack, Note, Pattern, Project } from '../model/types';
+import type { Channel, Clip, FxSlot, Id, MixerTrack, Note, Pattern, Project, SampleInfo } from '../model/types';
 import type { SamplerSettings } from '../model/sampler';
 import type { PEQ2Params } from '../model/peq2';
-import { createChannel, createClone, createFxSlot, createGenChannel, createLayerChannel, createMidiOutChannel, createNote, createPattern, uid, DEFAULT_PATTERN_COLOR, mixerTrackName } from '../model/defaults';
+import { createAudioClipChannel, createChannel, createClone, createFxSlot, createGenChannel, createLayerChannel, createMidiOutChannel, createNote, createPattern, uid, DEFAULT_PATTERN_COLOR, mixerTrackName } from '../model/defaults';
+import { audioClipTicks } from '../model/audioclip';
+import { getRaw } from '../audio/samples';
 import { defaultMidiOut, type MidiOutSettings } from '../model/midiout';
 import { defaultLayer, removeFromLayers, resetChildren, setChildren, splitChildren, type LayerSettings } from '../model/layer';
 import { ticksPerStep, ticksPerBar } from '../model/timing';
@@ -201,15 +203,44 @@ export function setChannelNotes(patternId: Id, channelId: Id, notes: Note[], lab
 export function setChannel<K extends keyof Channel>(id: Id, key: K, v: Channel[K], label: string): void {
   store.update(label, (d) => {
     const c = findChannel(d, id);
-    if (c) (c as Channel)[key] = v;
+    if (!c) return;
+    const before = c.kind === 'audioclip' && key === 'pitch' ? naturalAudioTicks(d, c) : 0;
+    (c as Channel)[key] = v;
+    if (before) refitAudioClips(d, c, before);
   }, { mergeKey: `ch:${id}:${String(key)}` });
 }
 
 export function setSampler(id: Id, label: string, recipe: (s: Draft<SamplerSettings>) => void): void {
   store.update(label, (d) => {
     const c = findChannel(d, id);
-    if (c) recipe(c.sampler);
+    if (!c) return;
+    const before = c.kind === 'audioclip' ? naturalAudioTicks(d, c) : 0;
+    recipe(c.sampler);
+    if (before) refitAudioClips(d, c, before);
   }, { mergeKey: `smp:${id}:${label}` });
+}
+
+/** One pass of an Audio Clip channel's sample in ticks as it plays now (read from a draft). */
+function naturalAudioTicks(d: P, c: Draft<Channel>): number {
+  const info = c.sampler.sampleId ? d.samples[c.sampler.sampleId] : undefined;
+  return info ? audioClipTicks(info, c.sampler as SamplerSettings, d.tempo, d.ppq, c.pitch * c.sampler.pitchRange * 100) : 0;
+}
+
+/**
+ * Audio clips that show the whole sample (FL: a clip ends where its sample does
+ * until it is resized) follow a change of the sample's length: TIME, MUL, the
+ * trim tools or the channel's pitch re-time the channel, and its full clips
+ * grow or shrink with it. Clips that were trimmed or slipped keep their window.
+ */
+function refitAudioClips(d: P, c: Draft<Channel>, before: number): void {
+  const after = naturalAudioTicks(d, c);
+  if (!before || !after || before === after) return;
+  for (const k of d.playlist.clips) {
+    if (k.kind !== 'audio' || k.channelId !== c.id || k.offset !== 0 || Math.abs(k.length - before) > 1) continue;
+    k.length = after;
+    if (k.fadeIn !== undefined) k.fadeIn = Math.min(k.fadeIn, after);
+    if (k.fadeOut !== undefined) k.fadeOut = Math.min(k.fadeOut, after);
+  }
 }
 
 export function addChannel(name: string, sampleId: Id | null, at?: number): Id {
@@ -305,6 +336,8 @@ export function replaceGenerator(channelId: Id, g: GeneratorChoice): void {
   store.update('Replace generator', (d) => {
     const c = findChannel(d, channelId);
     if (!c) return;
+    // an Audio Clip channel that becomes another generator has no audio clips any more
+    if (c.kind === 'audioclip') d.playlist.clips = d.playlist.clips.filter((k) => !(k.kind === 'audio' && k.channelId === channelId));
     dropGeneratorLinks(d, channelId);
     c.name = unique;
     delete c.midiOut;
@@ -508,6 +541,8 @@ export function deleteChannels(ids: Id[]): void {
     d.channels = d.channels.filter((c) => !ids.includes(c.id));
     removeFromLayers(d.channels as Channel[], ids); // a deleted child leaves its layer
     for (const p of d.patterns) for (const id of ids) delete p.notes[id];
+    // deleting an Audio Clip channel deletes its clips in the Playlist
+    d.playlist.clips = d.playlist.clips.filter((c) => !(c.kind === 'audio' && c.channelId !== undefined && ids.includes(c.channelId)));
     if (d.links?.length) {
       const srcs = new Set(ids.map(channelSlotId));
       d.links = d.links.filter((l) => !(l.target.scope === 'channel' && ids.includes(l.target.id)) && !(l.source && srcs.has(l.source.slotId)));
@@ -597,6 +632,54 @@ export function patternLength(pat: Pattern | undefined, p: Project = store.proje
   // a note's end counts at least one tick, so zero-length steps still occupy their bar
   for (const list of Object.values(pat.notes)) for (const n of list) end = Math.max(end, n.pos + Math.max(n.len, 1));
   return Math.max(bar, Math.ceil(end / bar - 1e-9) * bar);
+}
+
+// -------------------------------------------------------------- audio clips
+/** The SampleInfo of a pool sample: the project's, else one made from the pool's audio (a recording or a file decoded a moment ago). */
+function poolSampleInfo(p: Project, sampleId: Id): SampleInfo | undefined {
+  const known = p.samples[sampleId];
+  if (known) return known;
+  const raw = getRaw(sampleId);
+  if (!raw || !raw.channels.length) return undefined;
+  return { id: sampleId, name: raw.name, frames: raw.channels[0].length, sampleRate: raw.sampleRate, channels: raw.channels.length, source: { kind: 'user', key: sampleId } };
+}
+
+/**
+ * Add an Audio Clip: a new Audio Clip channel for a pool sample (named after
+ * the sample, Master unless `mixerTrack` is given) and an audio clip of the
+ * sample's length at `start` (ticks) in the Playlist, on `track` or, when
+ * omitted, on the highest empty track in view as for new automation clips. One
+ * undo step. This is what FL does when a sample is dropped on the Playlist and
+ * when a recording stops (docs/audio-clips.md).
+ */
+export function addAudioClip(
+  sampleId: Id, start: number, opts: { track?: number; mixerTrack?: number; name?: string } = {},
+): { channelId: Id; clipId: Id } {
+  const p = store.project;
+  const info = poolSampleInfo(p, sampleId);
+  const ch = createAudioClipChannel(opts.name ?? info?.name ?? 'Audio clip', sampleId, opts.mixerTrack ?? 0);
+  const at = Math.max(0, start);
+  const length = info ? audioClipTicks(info, ch.sampler, p.tempo, p.ppq) : ticksPerBar(p);
+  const track = opts.track !== undefined ? Math.max(0, Math.min(p.playlist.tracks.length - 1, Math.round(opts.track))) : firstFreeTrack(p, at, at + length);
+  const clip: Clip = { id: uid('k'), track, kind: 'audio', patternId: '', channelId: ch.id, start: at, length, offset: 0, muted: false };
+  store.update('Add audio clip', (d) => {
+    if (info && !d.samples[sampleId]) d.samples[sampleId] = info as Draft<SampleInfo>;
+    d.channels.push(ch as Draft<Channel>);
+    d.playlist.clips.push(clip as Draft<Clip>);
+  });
+  return { channelId: ch.id, clipId: clip.id };
+}
+
+/** Another instance of an Audio Clip channel in the Playlist (its natural length unless `length` is given). */
+export function addAudioClipInstance(track: number, channelId: Id, start: number, length?: number): Id | null {
+  const p = store.project;
+  const ch = p.channels.find((c) => c.id === channelId && c.kind === 'audioclip');
+  if (!ch) return null;
+  const info = ch.sampler.sampleId ? poolSampleInfo(p, ch.sampler.sampleId) : undefined;
+  const len = Math.max(1, length ?? (info ? audioClipTicks(info, ch.sampler, p.tempo, p.ppq, ch.pitch * ch.sampler.pitchRange * 100) : ticksPerBar(p)));
+  const clip: Clip = { id: uid('k'), track, kind: 'audio', patternId: '', channelId, start: Math.max(0, start), length: len, offset: 0, muted: false };
+  store.update('Add clip', (d) => { d.playlist.clips.push(clip as Draft<Clip>); });
+  return clip.id;
 }
 
 // ------------------------------------------------------------------- mixer
@@ -869,7 +952,7 @@ export function openFxWindow(slotId: Id, title: string): void {
 // ---------------------------------------------------------------- transport
 /** Space: play / stop (stop returns to where playback started). */
 export async function togglePlay(): Promise<void> {
-  if (live.playing) host.stop();
+  if (live.playing || live.rec.state !== 'idle') host.stop(); // a count-in or a wait for input counts as playing
   else await host.play();
 }
 
